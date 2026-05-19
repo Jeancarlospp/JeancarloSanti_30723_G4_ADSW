@@ -1,0 +1,5 @@
+com\crud\controller\ControlEstudiante.class
+com\crud\repository\RepositorioEstudiante.class
+com\crud\model\Estudiante.class
+com\crud\Main.class
+com\crud\view\FormularioCrudEstudiante.class
