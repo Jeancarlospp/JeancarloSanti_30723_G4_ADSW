@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AliGest - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+    
+    <nav class="bg-slate-800 border-b border-slate-700/60 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <span class="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">AliGest Condominios</span>
+            <div class="flex items-center space-x-6">
+                <a href="/dashboard" class="text-blue-400 border-b-2 border-blue-500 pb-1 font-semibold">Copropietarios</a>
+                <a href="/pagos" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-600/10 transition">Módulo de Caja ➔</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-10 space-y-10">
+        
+        <div class="bg-slate-800 rounded-2xl border border-slate-700/50 p-6 shadow-xl">
+            <h2 class="text-lg font-bold text-slate-200 mb-1">Carga Masiva de Copropietarios (Adapter Excel)</h2>
+            <p class="text-slate-400 text-xs mb-4">Simula la lectura de filas pegando un objeto JSON plano estructurado:</p>
+            <textarea id="jsonClipboard" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-xs font-mono text-indigo-300 focus:outline-none focus:border-blue-500 h-28 mb-4 resize-none" placeholder='[{"ID_Nacional": "1726485930", "Nombre_Completo": "Erick Tufiño", "Num_Villa": "Casa 14", "Celular": "0987654321", "Saldo_Inicial": 120.00}]'></textarea>
+            <button onclick="procesarImportacion()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition cursor-pointer">
+                Procesar mediante Adapter
+            </button>
+        </div>
+
+        <div class="bg-slate-800 rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden">
+            <div class="p-6 border-b border-slate-700/50 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-200">Residentes Registrados</h2>
+                <span class="text-xs bg-slate-700 text-slate-300 px-3 py-1 rounded-full font-mono">Sprint 1 - REQ005</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                            <th class="p-4">ID</th>
+                            <th class="p-4">Cédula</th>
+                            <th class="p-4">Nombre Completo</th>
+                            <th class="p-4">Villa / Casa</th>
+                            <th class="p-4">Celular</th>
+                            <th class="p-4 text-right">Saldo en Cuenta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaCopropietarios" class="divide-y divide-slate-700/40 text-sm text-slate-300">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function cargarTabla() {
+            const res = await fetch('/api/copropietarios');
+            const data = await res.json();
+            const tbody = document.getElementById('tablaCopropietarios');
+            tbody.innerHTML = '';
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">No hay registros cargados en el sistema en memoria.</td></tr>`;
+                return;
+            }
+            data.forEach(c => {
+                tbody.innerHTML += `<tr class="hover:bg-slate-700/20 transition">
+                    <td class="p-4 text-slate-500 font-mono text-xs">${c.id}</td>
+                    <td class="p-4 font-medium text-slate-200">${c.cedula}</td>
+                    <td class="p-4">${c.nombre}</td>
+                    <td class="p-4"><span class="bg-blue-500/10 text-blue-400 text-xs px-2.5 py-1 rounded-md border border-blue-500/10">${c.casa}</span></td>
+                    <td class="p-4 text-slate-400 font-mono text-xs">${c.telefono}</td>
+                    <td class="p-4 text-right font-bold ${c.saldo > 0 ? 'text-rose-400' : 'text-emerald-400'}">$${c.saldo.toFixed(2)}</td>
+                </tr>`;
+            });
+        }
+
+        async function procesarImportacion() {
+            const rawText = document.getElementById('jsonClipboard').value;
+            try {
+                const json = JSON.parse(rawText);
+                const res = await fetch('/api/copropietarios/importar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filas: json })
+                });
+                if(res.ok) { alert('¡Archivo adaptado e importado con éxito!'); cargarTabla(); }
+                else { const err = await res.json(); alert('Error de negocio: ' + err.error); }
+            } catch { alert('Formato JSON de simulación incorrecto.'); }
+        }
+        window.onload = cargarTabla;
+    </script>
+</body>
+</html>

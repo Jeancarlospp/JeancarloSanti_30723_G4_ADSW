@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AliGest - Control de Accesos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 flex justify-center items-center min-h-screen text-slate-100 font-sans">
+    
+    <div class="bg-slate-800/80 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-slate-700/50 w-full max-w-md transition-all duration-300">
+        <div class="text-center mb-8">
+            <h1 id="portalTitle" class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                AliGest Portal
+            </h1>
+            <p id="portalSub" class="text-slate-400 text-sm mt-2">Inicia sesión para administrar el condominio</p>
+        </div>
+
+        <div id="loginForm" class="space-y-5">
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Nombre de Usuario</label>
+                <input type="text" id="username" placeholder="admin_espe" class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Contraseña</label>
+                <input type="password" id="password" placeholder="••••••••" class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+            </div>
+            <button type="button" onclick="ejecutarLogin()" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-blue-600/20 cursor-pointer">
+                Ingresar al Sistema
+            </button>
+            <p class="text-center text-sm text-slate-400 mt-6">
+                ¿No tienes cuenta? <a href="#" onclick="toggleForm(true)" class="text-blue-400 hover:underline font-medium">Regístrate aquí</a>
+            </p>
+            <div id="errorMsg" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl text-center"></div>
+        </div>
+
+        <div id="registerForm" class="hidden space-y-5">
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Nuevo Usuario</label>
+                <input type="text" id="regUsername" placeholder="erick_admin" class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Contraseña del Sistema</label>
+                <input type="password" id="regPassword" placeholder="••••••••" class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Rol Asignado (RBAC)</label>
+                <select id="regRole" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-emerald-500 transition">
+                    <option value="ADMINISTRADOR">ADMINISTRADOR</option>
+                    <option value="COPROPIETARIO">COPROPIETARIO</option>
+                </select>
+            </div>
+            <button type="button" onclick="ejecutarRegistro()" class="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition shadow-lg shadow-emerald-600/20 cursor-pointer">
+                Crear Cuenta de Acceso
+            </button>
+            <p class="text-center text-sm text-slate-400 mt-6">
+                ¿Ya tienes cuenta? <a href="#" onclick="toggleForm(false)" class="text-emerald-400 hover:underline font-medium">Inicia Sesión</a>
+            </p>
+            <div id="regSuccessMsg" class="hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm p-3 rounded-xl text-center"></div>
+            <div id="regErrorMsg" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl text-center"></div>
+        </div>
+    </div>
+
+    <script>
+        function toggleForm(showRegister) {
+            document.getElementById('loginForm').classList.toggle('hidden', showRegister);
+            document.getElementById('registerForm').classList.toggle('hidden', !showRegister);
+            document.getElementById('portalTitle').innerText = showRegister ? 'Registro AliGest' : 'AliGest Portal';
+            document.getElementById('portalSub').innerText = showRegister ? 'Crea un nuevo usuario seguro con BCrypt' : 'Inicia sesión para administrar el condominio';
+            document.getElementById('errorMsg').classList.add('hidden');
+            document.getElementById('regErrorMsg').classList.add('hidden');
+            document.getElementById('regSuccessMsg').classList.add('hidden');
+        }
+
+        async function ejecutarRegistro() {
+            const sMsg = document.getElementById('regSuccessMsg');
+            const eMsg = document.getElementById('regErrorMsg');
+            sMsg.classList.add('hidden'); eMsg.classList.add('hidden');
+
+            const u = document.getElementById('regUsername').value;
+            const p = document.getElementById('regPassword').value;
+            const r = document.getElementById('regRole').value;
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p, role: r })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    sMsg.innerText = "¡Usuario creado! Redirigiendo...";
+                    sMsg.classList.remove('hidden');
+                    setTimeout(() => { toggleForm(false); }, 1550);
+                } else {
+                    eMsg.innerText = data.error || 'Error al registrar';
+                    eMsg.classList.remove('hidden');
+                }
+            } catch {
+                eMsg.innerText = "Error de comunicación."; eMsg.classList.remove('hidden');
+            }
+        }
+
+        async function ejecutarLogin() {
+            const eMsg = document.getElementById('errorMsg'); eMsg.classList.add('hidden');
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('userRole', data.session.role);
+                    window.location.href = '/dashboard';
+                } else {
+                    eMsg.innerText = data.error || 'Credenciales incorrectas';
+                    eMsg.classList.remove('hidden');
+                }
+            } catch {
+                eMsg.innerText = "Error de comunicación."; eMsg.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

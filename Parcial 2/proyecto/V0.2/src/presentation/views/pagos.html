@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AliGest - Recaudación de Caja</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+    
+    <nav class="bg-slate-800 border-b border-slate-700/60 shadow-md">
+        <div class="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
+            <span class="text-xl font-bold text-slate-200">Caja de Cobranza</span>
+            <a href="/dashboard" class="text-sm font-semibold text-slate-400 hover:text-slate-200 transition">➔ Volver al Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-5 gap-8">
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700/50 shadow-xl md:col-span-3 h-fit space-y-5">
+            <h2 class="text-lg font-bold text-slate-200 border-b border-slate-700/40 pb-3">Registrar Transacción Bancaria</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">ID Interno del Copropietario</label>
+                    <input type="number" id="copropietarioId" value="1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Número / Referencia de Comprobante</label>
+                    <input type="text" id="comprobanteId" placeholder="DEP-PICHINCHA-9921" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Monto Validado ($)</label>
+                    <input type="number" step="0.01" id="monto" value="120.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500">
+                </div>
+                <button onclick="ejecutarCobro()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-lg transition cursor-pointer">
+                    Validar Pago y Procesar Mora
+                </button>
+            </div>
+        </div>
+
+        <div class="md:col-span-2 space-y-4">
+            <div id="comprobanteBox" class="hidden bg-slate-900/40 border border-emerald-500/20 rounded-2xl p-6 shadow-xl space-y-4">
+                <div class="flex items-center space-x-2 text-emerald-400">
+                    <span class="text-sm font-bold uppercase tracking-wider">Recibo Inmutable</span>
+                </div>
+                
+                <div id="ticketText" class="font-mono text-xs bg-slate-950 p-4 rounded-xl border border-slate-800 text-indigo-300 leading-relaxed whitespace-pre-line">
+                    </div>
+
+                <p class="text-[10px] text-slate-500 italic text-center">
+                    Copia firmada inmutable en BD. Notificación de WhatsApp enviada automáticamente al residente.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function ejecutarCobro() {
+            const box = document.getElementById('comprobanteBox');
+            const ticket = document.getElementById('ticketText');
+            box.classList.add('hidden');
+
+            const id = document.getElementById('copropietarioId').value;
+            const ref = document.getElementById('comprobanteId').value;
+            const m = document.getElementById('monto').value;
+
+            if(!ref) { alert('Ingresa una referencia bancaria.'); return; }
+
+            const res = await fetch('/api/pagos/registrar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ copropietarioId: parseInt(id), comprobanteId: ref, monto: parseFloat(m) })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                box.classList.remove('hidden');
+                ticket.innerHTML = `
+                    <b>ALIGEST INMUTABLE RECEIPT</b>
+                    ================================
+                    ID TRANSACCIÓN : ${data.comprobanteDigital.comprobante_id}
+                    REF BANCARIA   : ${ref}
+                    MONTO LIQUIDADO: $${data.comprobanteDigital.monto_aplicado.toFixed(2)}
+                    SOBREPAGO      : $0.00
+                    ESTADO COMP.   : ${data.comprobanteDigital.estado_transaccion}
+                    SISTEMA FECHA  : ${new Date().toLocaleDateString()}
+                    ================================
+                    Mora calculada y aplicada.
+                `;
+            } else {
+                alert('No se pudo liquidar la deuda en caja.');
+            }
+        }
+    </script>
+</body>
+</html>
