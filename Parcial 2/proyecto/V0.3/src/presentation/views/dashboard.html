@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AliGest - Panel de Gestión</title>
+    <!-- Importar tipografía moderna Outfit de Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top right, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 1));
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.45);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-12">
+    
+    <!-- NAVBAR COMPUESTA -->
+    <nav class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-blue-500 flex items-center justify-center font-bold text-white shadow-lg">AG</div>
+                <span class="text-xl font-bold bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">AliGest Condominios</span>
+            </div>
+            <div class="flex items-center space-x-6">
+                <span id="navWelcome" class="text-xs text-slate-400 hidden sm:inline">Hola, <b class="text-slate-200" id="sessionUser">-</b></span>
+                <span id="roleBadge" class="text-[10px] bg-slate-700/80 text-indigo-300 border border-indigo-500/20 px-3 py-1 rounded-full font-semibold uppercase tracking-wider">Rol: -</span>
+                <button onclick="cerrarSesion()" class="text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/20 px-4 py-2 rounded-xl transition cursor-pointer font-bold">Cerrar Sesión</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 mt-8">
+        
+        <!-- VISTA DE ADMINISTRADOR -->
+        <div id="vistaAdmin" class="hidden space-y-8">
+            <!-- PESTAÑAS / TABS -->
+            <div class="flex border-b border-slate-800 space-x-8 text-sm font-bold">
+                <button onclick="cambiarTabAdmin('residentes')" id="tabBtn-residentes" class="pb-4 border-b-2 border-indigo-500 text-indigo-400 cursor-pointer transition">Copropietarios</button>
+                <button onclick="cambiarTabAdmin('importar')" id="tabBtn-importar" class="pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition">Importación Masiva (Excel)</button>
+                <button onclick="cambiarTabAdmin('perfiles')" id="tabBtn-perfiles" class="pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition">Perfiles de Acceso</button>
+                <button onclick="cambiarTabAdmin('pagos')" id="tabBtn-pagos" class="pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition flex items-center space-x-2">
+                    <span>Validación de Pagos</span>
+                    <span id="alertCount" class="hidden bg-rose-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">0</span>
+                </button>
+            </div>
+
+            <!-- CONTENIDO TAB: RESIDENTES -->
+            <div id="tabContent-residentes" class="space-y-6">
+                <!-- FILTROS AVANZADOS (RF-2.2 / REQ005) -->
+                <div class="glass-card p-6 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Buscar por Nombre</label>
+                        <input type="text" id="filtroNombre" oninput="consultarCopropietarios()" placeholder="Ej: Erick Tufiño" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-xs text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Filtrar por Casa / Villa</label>
+                        <input type="text" id="filtroCasa" oninput="consultarCopropietarios()" placeholder="Ej: Casa A" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-xs text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Rango de Villas (Inicio - Fin)</label>
+                        <div class="flex space-x-2">
+                            <input type="number" id="rangoInicio" oninput="consultarCopropietarios()" placeholder="Desde 1" class="w-1/2 bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200">
+                            <input type="number" id="rangoFin" oninput="consultarCopropietarios()" placeholder="Hasta 60" class="w-1/2 bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Estado de Cuenta</label>
+                        <select id="filtroEstado" onchange="consultarCopropietarios()" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-xs text-slate-300">
+                            <option value="">Todos</option>
+                            <option value="saldado">Al Día / Saldado</option>
+                            <option value="deudor">Con Deudas / Deudores</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- TABLA DE COPROPIETARIOS -->
+                <div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+                    <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
+                        <h3 class="text-base font-bold text-slate-200">Listado Oficial de Copropietarios</h3>
+                        <div class="flex space-x-3">
+                            <button onclick="exportarReporte('excel')" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl transition cursor-pointer">Exportar Excel</button>
+                            <button onclick="exportarReporte('pdf')" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl transition cursor-pointer">Exportar PDF</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/40 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                    <th class="p-4 cursor-pointer hover:bg-slate-800/40" onclick="cambiarOrdenamiento('id')">ID</th>
+                                    <th class="p-4 cursor-pointer hover:bg-slate-800/40" onclick="cambiarOrdenamiento('casa')">Villa</th>
+                                    <th class="p-4 cursor-pointer hover:bg-slate-800/40" onclick="cambiarOrdenamiento('nombre')">Nombre Completo</th>
+                                    <th class="p-4 cursor-pointer hover:bg-slate-800/40" onclick="cambiarOrdenamiento('cedula')">Cédula</th>
+                                    <th class="p-4">Contacto</th>
+                                    <th class="p-4 text-right cursor-pointer hover:bg-slate-800/40" onclick="cambiarOrdenamiento('saldo')">Saldo</th>
+                                    <th class="p-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaAdminCopropietarios" class="divide-y divide-slate-800/40 text-xs text-slate-300">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO TAB: IMPORTACIÓN MASIVA (RF-2.1) -->
+            <div id="tabContent-importar" class="hidden space-y-6">
+                <div class="glass-card p-8 rounded-3xl max-w-xl mx-auto space-y-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-200">Importación Masiva desde Excel</h3>
+                        <p class="text-slate-400 text-xs mt-1">Cargue la hoja de cálculo conteniendo la planilla de residentes.</p>
+                    </div>
+
+                    <div class="bg-slate-900/60 border border-slate-700/60 p-4 rounded-xl text-xs space-y-2 leading-relaxed">
+                        <span class="font-bold text-indigo-400">Requerimientos de columnas:</span>
+                        <p class="text-slate-400">El archivo debe contener las siguientes columnas (el orden es flexible):</p>
+                        <p class="font-mono text-indigo-300">"Cédula", "Nombre Completo", "Número Casa", "Correo Electrónico", "Teléfono", "Saldo Inicial"</p>
+                    </div>
+
+                    <form id="excelForm" onsubmit="ejecutarImportacionExcel(event)" class="space-y-4">
+                        <div class="border-2 border-dashed border-slate-700 rounded-2xl p-6 text-center cursor-pointer hover:border-indigo-500 transition relative">
+                            <input type="file" id="excelFile" accept=".xlsx, .xls" required class="absolute inset-0 opacity-0 w-full cursor-pointer">
+                            <span class="text-slate-400 text-xs block mb-1">Arrastre o haga clic para seleccionar archivo Excel</span>
+                            <span class="text-slate-500 text-[10px]" id="selectedFileName">Ninguno seleccionado</span>
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition cursor-pointer">
+                            Cargar y Validar Archivo
+                        </button>
+                    </form>
+
+                    <div id="importResult" class="hidden p-4 rounded-xl border space-y-3">
+                        <p class="text-xs font-semibold" id="importResultText"></p>
+                        <!-- Formulario para descargar reporte PDF de resumen de importación -->
+                        <form action="/api/copropietarios/importar/resumen-pdf" method="POST" id="downloadReportForm">
+                            <input type="hidden" name="resultados" id="reportDataInput">
+                            <input type="hidden" name="x-user-role" value="ADMINISTRADOR">
+                            <button type="button" onclick="descargarReporteResumenPdf()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold transition">Descargar Resumen PDF</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO TAB: PERFILES DE ACCESO (RF-1.3) -->
+            <div id="tabContent-perfiles" class="hidden space-y-6">
+                <div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+                    <div class="p-6 border-b border-slate-800 bg-slate-800/20">
+                        <h3 class="text-base font-bold text-slate-200">Administración de Perfiles y Control de Roles</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/40 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                    <th class="p-4">ID</th>
+                                    <th class="p-4">Usuario</th>
+                                    <th class="p-4">Correo</th>
+                                    <th class="p-4">Rol</th>
+                                    <th class="p-4">Estado</th>
+                                    <th class="p-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaAdminPerfiles" class="divide-y divide-slate-800/40 text-xs text-slate-300">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO TAB: VALIDACIÓN DE PAGOS -->
+            <div id="tabContent-pagos" class="hidden space-y-6">
+                <div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+                    <div class="p-6 border-b border-slate-800 bg-slate-800/20">
+                        <h3 class="text-base font-bold text-slate-200">Revisión de Comprobantes de Pago Pendientes</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/40 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                    <th class="p-4">Residente</th>
+                                    <th class="p-4">Villa</th>
+                                    <th class="p-4">Referencia</th>
+                                    <th class="p-4">Período</th>
+                                    <th class="p-4">Monto Reportado</th>
+                                    <th class="p-4">Método</th>
+                                    <th class="p-4">Evidencia</th>
+                                    <th class="p-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaAdminPagosPendientes" class="divide-y divide-slate-800/40 text-xs text-slate-300">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA DE COPROPIETARIO -->
+        <div id="vistaCopro" class="hidden space-y-8">
+            <!-- PESTAÑAS COPROPIETARIO -->
+            <div class="flex border-b border-slate-800 space-x-8 text-sm font-bold">
+                <button onclick="cambiarTabCopro('estado')" id="tabBtnCopro-estado" class="pb-4 border-b-2 border-indigo-500 text-indigo-400 cursor-pointer transition">Mi Estado de Cuenta</button>
+                <button onclick="cambiarTabCopro('deudas')" id="tabBtnCopro-deudas" class="pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition">Deudas Pendientes</button>
+                <button onclick="cambiarTabCopro('reportar')" id="tabBtnCopro-reportar" class="pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition">Reportar Pago</button>
+                <button onclick="cambiarTabCopro('historial')" id="tabBtnCopro-historial" class="pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition">Historial de Pagos</button>
+            </div>
+
+            <!-- CONTENIDO TAB COPROPIETARIO: ESTADO DE CUENTA -->
+            <div id="tabContentCopro-estado" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass-card p-6 rounded-2xl md:col-span-2 space-y-6">
+                    <h3 class="text-base font-bold text-slate-200">Información del Residente</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs text-slate-300">
+                        <div>
+                            <span class="text-slate-500 block uppercase font-semibold">Nombre Completo</span>
+                            <span class="text-sm font-bold text-slate-100" id="coproInfoNombre">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block uppercase font-semibold">Cédula de Identidad</span>
+                            <span class="text-sm font-mono text-slate-100" id="coproInfoCedula">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block uppercase font-semibold">Villa Asignada</span>
+                            <span class="text-sm font-bold text-indigo-400" id="coproInfoVilla">-</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block uppercase font-semibold">Teléfono Celular</span>
+                            <span class="text-sm font-mono text-slate-100" id="coproInfoTel">-</span>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <span class="text-slate-500 block uppercase font-semibold">Correo Electrónico</span>
+                            <span class="text-sm text-slate-100" id="coproInfoEmail">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl flex flex-col justify-between space-y-6">
+                    <div>
+                        <span class="text-slate-500 text-xs font-semibold block uppercase">Saldo Global Actual</span>
+                        <h4 id="coproInfoSaldo" class="text-4xl font-extrabold mt-2 font-mono">-</h4>
+                        <p class="text-[10px] text-slate-500 mt-2">Un saldo positivo representa deudas. Un saldo negativo es un excedente a favor.</p>
+                    </div>
+                    <div id="coproStatusBadge" class="p-3 rounded-xl text-center text-xs font-bold"></div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO TAB COPROPIETARIO: DEUDAS PENDIENTES -->
+            <div id="tabContentCopro-deudas" class="space-y-6">
+                <div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+                    <div class="p-6 border-b border-slate-800 bg-slate-800/20">
+                        <h3 class="text-base font-bold text-slate-200">Planilla de Deudas Pendientes</h3>
+                        <p class="text-slate-500 text-[10px] mt-1">El recargo por mora del 12% anual se calcula diariamente sobre períodos pendientes tras la fecha de corte (día 5 de cada mes).</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/40 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                    <th class="p-4">Período (Mes)</th>
+                                    <th class="p-4">Monto Base</th>
+                                    <th class="p-4">Fecha Vencimiento</th>
+                                    <th class="p-4">Días Retraso</th>
+                                    <th class="p-4">Mora (12% Anual)</th>
+                                    <th class="p-4 text-right">Monto Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaCoproDeudas" class="divide-y divide-slate-800/40 text-xs text-slate-300">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO TAB COPROPIETARIO: REPORTAR PAGO -->
+            <div id="tabContentCopro-reportar" class="space-y-6">
+                <div class="glass-card p-6 md:p-8 rounded-3xl max-w-lg mx-auto space-y-6">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-200">Declarar Depósito o Transferencia</h3>
+                        <p class="text-slate-400 text-xs mt-1">Reporte su pago bancario para su validación por el administrador.</p>
+                    </div>
+
+                    <form id="paymentReportForm" onsubmit="ejecutarReportePago(event)" class="space-y-4 text-xs">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-slate-400 font-semibold mb-2">Referencia / N. Comprobante</label>
+                                <input type="text" id="pagoRef" required placeholder="DEP-991282" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 font-semibold mb-2">Monto Transferido ($)</label>
+                                <input type="number" step="0.01" id="pagoMonto" required placeholder="120.00" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-slate-400 font-semibold mb-2">Método de Pago</label>
+                                <select id="pagoMetodo" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-slate-300 focus:outline-none focus:border-indigo-500">
+                                    <option value="TRANSFERENCIA">TRANSFERENCIA BANCARIA</option>
+                                    <option value="DEPÓSITO">DEPÓSITO EN CAJA</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 font-semibold mb-2">Período Declarado</label>
+                                <input type="month" id="pagoPeriodo" required class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-slate-300 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-slate-400 font-semibold mb-2">Evidencia del Pago (Mock Imagen Base64)</label>
+                            <input type="text" id="pagoImg" placeholder="Pegue cualquier enlace o texto representativo del archivo" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none">
+                        </div>
+
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition cursor-pointer text-sm shadow-lg shadow-indigo-600/20">
+                            Enviar Reporte de Pago
+                        </button>
+                    </form>
+                    <div id="reportSuccessAlert" class="hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+                    <div id="reportErrorAlert" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO TAB COPROPIETARIO: HISTORIAL DE PAGOS -->
+            <div id="tabContentCopro-historial" class="space-y-6">
+                <div class="glass-card rounded-2xl overflow-hidden shadow-xl">
+                    <div class="p-6 border-b border-slate-800 bg-slate-800/20">
+                        <h3 class="text-base font-bold text-slate-200">Historial de Reportes y Transacciones</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900/40 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                    <th class="p-4">Fecha Reportado</th>
+                                    <th class="p-4">Referencia Bancaria</th>
+                                    <th class="p-4">Período</th>
+                                    <th class="p-4">Monto</th>
+                                    <th class="p-4">Estado</th>
+                                    <th class="p-4">Motivo / Recibo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaCoproHistorial" class="divide-y divide-slate-800/40 text-xs text-slate-300">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL EDITAR COPROPIETARIO -->
+    <div id="editCoproModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-4">
+        <div class="glass-card p-8 rounded-3xl w-full max-w-md space-y-6">
+            <h3 class="text-lg font-bold text-slate-200">Modificar Datos de Residente</h3>
+            <div class="space-y-4 text-xs">
+                <input type="hidden" id="editCoproCedulaOriginal">
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Nombre Completo</label>
+                    <input type="text" id="editCoproNombre" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-200">
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Villa / Casa</label>
+                    <input type="text" id="editCoproCasa" readonly class="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-500 cursor-not-allowed">
+                    <span class="text-[9px] text-slate-500 mt-1 block">El número de casa no se puede modificar ya que es el identificador único (RF-2.4).</span>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Teléfono Celular</label>
+                    <input type="text" id="editCoproTelefono" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-200">
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Correo Electrónico</label>
+                    <input type="email" id="editCoproEmail" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-200">
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Saldo ($)</label>
+                    <input type="number" step="0.01" id="editCoproSaldo" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-200">
+                </div>
+                <div class="flex space-x-3 pt-4">
+                    <button onclick="guardarEdicionCopropietario()" class="w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition cursor-pointer">Guardar Cambios</button>
+                    <button onclick="cerrarEdicionCopropietario()" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 rounded-xl transition cursor-pointer">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR PERFIL DE USUARIO -->
+    <div id="editPerfilModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-4">
+        <div class="glass-card p-8 rounded-3xl w-full max-w-sm space-y-6">
+            <h3 class="text-lg font-bold text-slate-200">Configurar Perfil y Permisos (RF-1.3)</h3>
+            <div class="space-y-4 text-xs">
+                <input type="hidden" id="editPerfilId">
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Usuario</label>
+                    <input type="text" id="editPerfilUsername" readonly class="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-500 cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Rol Asignado</label>
+                    <select id="editPerfilRole" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-300">
+                        <option value="ADMINISTRADOR">ADMINISTRADOR</option>
+                        <option value="COPROPIETARIO">COPROPIETARIO</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Estado del Usuario</label>
+                    <select id="editPerfilStatus" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-300">
+                        <option value="ACTIVO">ACTIVO</option>
+                        <option value="BLOQUEADO">BLOQUEADO</option>
+                    </select>
+                </div>
+                <div class="flex space-x-3 pt-4">
+                    <button onclick="guardarEdicionPerfil()" class="w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition cursor-pointer">Guardar</button>
+                    <button onclick="cerrarEdicionPerfil()" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 rounded-xl transition cursor-pointer">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RECHAZAR PAGO -->
+    <div id="rejectPaymentModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-4">
+        <div class="glass-card p-8 rounded-3xl w-full max-w-sm space-y-6">
+            <h3 class="text-lg font-bold text-slate-200">Rechazar Comprobante de Pago</h3>
+            <div class="space-y-4 text-xs">
+                <input type="hidden" id="rejectPaymentId">
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-2">Especifique el Motivo del Rechazo</label>
+                    <textarea id="rejectPaymentMotivo" rows="4" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-red-500" placeholder="Ej: Comprobante ilegible o referencia bancaria duplicada."></textarea>
+                </div>
+                <div class="flex space-x-3 pt-4">
+                    <button onclick="guardarRechazoPago()" class="w-1/2 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition cursor-pointer">Rechazar Pago</button>
+                    <button onclick="cerrarRechazoPago()" class="w-1/2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 rounded-xl transition cursor-pointer">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const userRole = localStorage.getItem('userRole') || 'COPROPIETARIO';
+        const userId = localStorage.getItem('userId');
+        const username = localStorage.getItem('username');
+
+        // Validar sesión obligatoria (RF-2.4.4)
+        if (!userRole || !userId) {
+            cerrarSesion();
+        }
+
+        document.getElementById('sessionUser').innerText = username;
+        document.getElementById('roleBadge').innerText = `Rol: ${userRole}`;
+
+        // Control de ordenamiento en tablas
+        let sortingCol = 'casa';
+        let sortingDir = 'asc';
+
+        // Inicializar vistas basadas en roles
+        if (userRole === 'ADMINISTRADOR') {
+            document.getElementById('vistaAdmin').classList.remove('hidden');
+            consultarCopropietarios();
+            consultarPerfiles();
+            consultarPagosPendientes();
+        } else {
+            document.getElementById('vistaCopro').classList.remove('hidden');
+            cargarMiEstadoDeCuenta();
+            cargarMisPagos();
+            cargarMisDeudas();
+        }
+
+        // Mostrar nombre del archivo seleccionado en Excel upload
+        document.getElementById('excelFile')?.addEventListener('change', (e) => {
+            document.getElementById('selectedFileName').innerText = e.target.files[0]?.name || 'Ninguno seleccionado';
+        });
+
+        // CERRAR SESIÓN
+        function cerrarSesion() {
+            localStorage.clear();
+            window.location.href = '/';
+        }
+
+        // --- MÉTODOS DE TABS ---
+        function cambiarTabAdmin(tab) {
+            const tabs = ['residentes', 'importar', 'perfiles', 'pagos'];
+            tabs.forEach(t => {
+                document.getElementById(`tabBtn-${t}`).className = t === tab ? 
+                    'pb-4 border-b-2 border-indigo-500 text-indigo-400 cursor-pointer transition' : 
+                    'pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition';
+                
+                document.getElementById(`tabContent-${t}`).classList.toggle('hidden', t !== tab);
+            });
+        }
+
+        function cambiarTabCopro(tab) {
+            const tabs = ['estado', 'deudas', 'reportar', 'historial'];
+            tabs.forEach(t => {
+                document.getElementById(`tabBtnCopro-${t}`).className = t === tab ? 
+                    'pb-4 border-b-2 border-indigo-500 text-indigo-400 cursor-pointer transition' : 
+                    'pb-4 border-b-2 border-transparent text-slate-400 hover:text-slate-200 cursor-pointer transition';
+                
+                document.getElementById(`tabContentCopro-${t}`).classList.toggle('hidden', t !== tab);
+            });
+        }
+
+        // --- CONTROLADORES DE ROL: ADMINISTRADOR ---
+
+        // RF-2.2 / REQ005: Consultar Copropietarios
+        async function consultarCopropietarios() {
+            const nombre = document.getElementById('filtroNombre').value;
+            const casa = document.getElementById('filtroCasa').value;
+            const inicio = document.getElementById('rangoInicio').value;
+            const fin = document.getElementById('rangoFin').value;
+            const estado = document.getElementById('filtroEstado').value;
+
+            let query = `?nombre=${nombre}&casa=${casa}&casaInicio=${inicio}&casaFin=${fin}&estadoCuenta=${estado}`;
+
+            try {
+                const res = await fetch(`/api/copropietarios${query}`, {
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                let list = await res.json();
+
+                // Aplicar ordenamiento
+                list.sort((a, b) => {
+                    let valA = a[sortingCol];
+                    let valB = b[sortingCol];
+
+                    // Si es saldo, parsear
+                    if (sortingCol === 'saldo' || sortingCol === 'id') {
+                        valA = parseFloat(valA);
+                        valB = parseFloat(valB);
+                    } else {
+                        valA = String(valA).toLowerCase();
+                        valB = String(valB).toLowerCase();
+                    }
+
+                    if (valA < valB) return sortingDir === 'asc' ? -1 : 1;
+                    if (valA > valB) return sortingDir === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                const tbody = document.getElementById('tablaAdminCopropietarios');
+                tbody.innerHTML = '';
+                
+                if(list.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No se encontraron copropietarios con los criterios de búsqueda seleccionados.</td></tr>`;
+                    return;
+                }
+
+                list.forEach(c => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-700/20 border-b border-slate-800/40 transition">
+                            <td class="p-4 font-mono text-slate-500">${c.id}</td>
+                            <td class="p-4"><span class="bg-indigo-500/10 text-indigo-400 font-bold px-2 py-0.5 rounded">${c.casa}</span></td>
+                            <td class="p-4 font-bold text-slate-200">${c.nombre}</td>
+                            <td class="p-4 font-mono">${c.cedula}</td>
+                            <td class="p-4 text-slate-400">${c.telefono}<br><span class="text-[10px] text-slate-500">${c.email}</span></td>
+                            <td class="p-4 text-right font-bold ${c.saldo > 0 ? 'text-rose-400' : 'text-emerald-400'}">$${parseFloat(c.saldo).toFixed(2)}</td>
+                            <td class="p-4 text-center space-x-2">
+                                <button onclick="abrirEdicionCopropietario('${c.cedula}', '${c.nombre}', '${c.casa}', '${c.telefono}', '${c.email}', ${c.saldo})" class="bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 border border-amber-500/10 px-2 py-1 rounded transition cursor-pointer">Editar</button>
+                                <button onclick="ejecutarEliminacionCopropietario(${c.id}, '${c.nombre}', '${c.casa}')" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/10 px-2 py-1 rounded transition cursor-pointer">Eliminar</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error("Error al consultar copropietarios:", err);
+            }
+        }
+
+        function cambiarOrdenamiento(col) {
+            if (sortingCol === col) {
+                sortingDir = sortingDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortingCol = col;
+                sortingDir = 'asc';
+            }
+            consultarCopropietarios();
+        }
+
+        // RF-2.2: Exportar listas (Excel o PDF)
+        function exportarReporte(formato) {
+            window.open(`/api/copropietarios/exportar/${formato}?x-user-role=${userRole}&x-user-id=${userId}`);
+        }
+
+        // RF-2.4: Modificar Residentes
+        function abrirEdicionCopropietario(cedula, nombre, casa, telefono, email, saldo) {
+            document.getElementById('editCoproCedulaOriginal').value = cedula;
+            document.getElementById('editCoproNombre').value = nombre;
+            document.getElementById('editCoproCasa').value = casa;
+            document.getElementById('editCoproTelefono').value = telefono;
+            document.getElementById('editCoproEmail').value = email;
+            document.getElementById('editCoproSaldo').value = saldo;
+            document.getElementById('editCoproModal').classList.remove('hidden');
+        }
+
+        function cerrarEdicionCopropietario() {
+            document.getElementById('editCoproModal').classList.add('hidden');
+        }
+
+        async function guardarEdicionCopropietario() {
+            const originalCedula = document.getElementById('editCoproCedulaOriginal').value;
+            const nombre = document.getElementById('editCoproNombre').value.trim();
+            const casa = document.getElementById('editCoproCasa').value;
+            const telefono = document.getElementById('editCoproTelefono').value.trim();
+            const email = document.getElementById('editCoproEmail').value.trim();
+            const saldo = document.getElementById('editCoproSaldo').value;
+
+            try {
+                const res = await fetch(`/api/copropietarios/${originalCedula}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-user-role': userRole,
+                        'x-user-id': userId
+                    },
+                    body: JSON.stringify({ nombre, casa, telefono, email, saldo: parseFloat(saldo) })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.mensaje);
+                    cerrarEdicionCopropietario();
+                    consultarCopropietarios();
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch {
+                alert("Error de comunicación.");
+            }
+        }
+
+        // RF-2.5: Eliminar Copropietario con confirmación por historial
+        async function ejecutarEliminacionCopropietario(id, nombre, casa, confirmarStr = '') {
+            if (confirmarStr === '') {
+                if (!confirm(`¿Está seguro de eliminar al copropietario ${nombre} de la casa ${casa}?`)) {
+                    return;
+                }
+            }
+
+            try {
+                const res = await fetch(`/api/copropietarios/${id}?confirmar=${confirmarStr}`, {
+                    method: 'DELETE',
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                
+                const data = await res.json();
+                if (res.status === 202 && data.advertencia === 'HISTORIAL_ACTIVO') {
+                    // Advertencia de historial activo
+                    if (confirm(`${data.mensaje}\n\nSeleccione Aceptar para proceder de todas formas (fuerza la eliminación) o Cancelar.`)) {
+                        ejecutarEliminacionCopropietario(id, nombre, casa, 'true');
+                    }
+                } else if (res.ok) {
+                    alert(data.mensaje || "Residente eliminado correctamente.");
+                    consultarCopropietarios();
+                    consultarPerfiles();
+                } else {
+                    alert("Error de borrado: " + data.error);
+                }
+            } catch {
+                alert("Error de red.");
+            }
+        }
+
+        // RF-2.1: Cargar Excel masivo
+        async function ejecutarImportacionExcel(event) {
+            event.preventDefault();
+            const form = document.getElementById('excelForm');
+            const fileInput = document.getElementById('excelFile');
+            const resultBox = document.getElementById('importResult');
+            const resultText = document.getElementById('importResultText');
+            resultBox.classList.add('hidden');
+
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/copropietarios/importar', {
+                    method: 'POST',
+                    headers: { 
+                        'x-user-role': userRole,
+                        'x-user-id': userId
+                    },
+                    body: formData // Envía formData sin Content-Type header para dejar al navegador definir el boundary de multer
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    resultBox.className = "p-4 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-400 space-y-3";
+                    resultText.innerHTML = `<b>¡Importación Completada!</b><br>${data.mensaje}`;
+                    document.getElementById('reportDataInput').value = JSON.stringify(data.copropietarios);
+                    resultBox.classList.remove('hidden');
+                    consultarCopropietarios();
+                    consultarPerfiles();
+                } else {
+                    resultBox.className = "p-4 rounded-xl border bg-red-500/10 border-red-500/20 text-red-400 space-y-3";
+                    resultText.innerHTML = `<b>Fallo en Validación:</b><br>${data.error}`;
+                    resultBox.classList.remove('hidden');
+                }
+            } catch (err) {
+                alert("Error al cargar archivo.");
+            }
+        }
+
+        function descargarReporteResumenPdf() {
+            // Enviar formulario formal para descargar PDF
+            document.getElementById('downloadReportForm').submit();
+        }
+
+        // RF-1.3: Listar perfiles
+        async function consultarPerfiles() {
+            try {
+                const res = await fetch('/api/auth/usuarios', {
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                const list = await res.json();
+                const tbody = document.getElementById('tablaAdminPerfiles');
+                tbody.innerHTML = '';
+
+                list.forEach(u => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-700/20 border-b border-slate-800/40 transition">
+                            <td class="p-4 font-mono text-slate-500">${u.id}</td>
+                            <td class="p-4 font-bold text-slate-200">${u.username}</td>
+                            <td class="p-4">${u.email}</td>
+                            <td class="p-4"><span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-bold">${u.role}</span></td>
+                            <td class="p-4">
+                                <span class="px-2 py-0.5 rounded font-bold ${u.status === 'ACTIVO' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}">${u.status}</span>
+                            </td>
+                            <td class="p-4 text-center">
+                                <button onclick="abrirEdicionPerfil(${u.id}, '${u.username}', '${u.role}', '${u.status}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/10 px-2 py-1 rounded transition cursor-pointer">Configurar</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch {}
+        }
+
+        function abrirEdicionPerfil(id, username, role, status) {
+            document.getElementById('editPerfilId').value = id;
+            document.getElementById('editPerfilUsername').value = username;
+            document.getElementById('editPerfilRole').value = role;
+            document.getElementById('editPerfilStatus').value = status;
+            document.getElementById('editPerfilModal').classList.remove('hidden');
+        }
+
+        function cerrarEdicionPerfil() {
+            document.getElementById('editPerfilModal').classList.add('hidden');
+        }
+
+        async function guardarEdicionPerfil() {
+            const id = document.getElementById('editPerfilId').value;
+            const role = document.getElementById('editPerfilRole').value;
+            const status = document.getElementById('editPerfilStatus').value;
+
+            try {
+                const res = await fetch(`/api/auth/usuarios/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-role': userRole,
+                        'x-user-id': userId
+                    },
+                    body: JSON.stringify({ role, status })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(data.mensaje);
+                    cerrarEdicionPerfil();
+                    consultarPerfiles();
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch {
+                alert("Error de red.");
+            }
+        }
+
+        // LISTAR PAGOS PENDIENTES DE VALIDACIÓN (Administrador)
+        async function consultarPagosPendientes() {
+            try {
+                const res = await fetch('/api/pagos/pendientes', {
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                const list = await res.json();
+                
+                // Actualizar alertas del nav tab
+                const badge = document.getElementById('alertCount');
+                if (list.length > 0) {
+                    badge.innerText = list.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                const tbody = document.getElementById('tablaAdminPagosPendientes');
+                tbody.innerHTML = '';
+
+                if (list.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-500 italic">No hay comprobantes pendientes de validación administrativa.</td></tr>`;
+                    return;
+                }
+
+                list.forEach(p => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-700/20 border-b border-slate-800/40 transition">
+                            <td class="p-4 font-bold text-slate-200">${p.copropietario_nombre}</td>
+                            <td class="p-4"><span class="bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-bold">${p.copropietario_casa}</span></td>
+                            <td class="p-4 font-mono text-slate-400">${p.comprobante_id}</td>
+                            <td class="p-4 font-mono">${p.periodo || 'N/A'}</td>
+                            <td class="p-4 font-bold text-slate-200">$${parseFloat(p.monto_pagado).toFixed(2)}</td>
+                            <td class="p-4 text-[10px] uppercase font-semibold">${p.metodo}</td>
+                            <td class="p-4 font-mono text-[10px] text-slate-500">${p.comprobante_img ? p.comprobante_img.substring(0, 15) + '...' : 'Sin adjunto'}</td>
+                            <td class="p-4 text-center space-x-2">
+                                <button onclick="aprobarPago(${p.id})" class="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/10 px-2 py-1 rounded transition cursor-pointer">Aprobar</button>
+                                <button onclick="abrirRechazoPago(${p.id})" class="bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-500/10 px-2 py-1 rounded transition cursor-pointer">Rechazar</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch {}
+        }
+
+        async function aprobarPago(id) {
+            if(!confirm("¿Está seguro de aprobar y validar este pago? Se aplicará la amortización FIFO y se enviará la alerta.")) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/pagos/${id}/aprobar`, {
+                    method: 'POST',
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(data.mensaje);
+                    consultarPagosPendientes();
+                    consultarCopropietarios();
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch {
+                alert("Error de comunicación.");
+            }
+        }
+
+        function abrirRechazoPago(id) {
+            document.getElementById('rejectPaymentId').value = id;
+            document.getElementById('rejectPaymentMotivo').value = '';
+            document.getElementById('rejectPaymentModal').classList.remove('hidden');
+        }
+
+        function cerrarRechazoPago() {
+            document.getElementById('rejectPaymentModal').classList.add('hidden');
+        }
+
+        async function guardarRechazoPago() {
+            const id = document.getElementById('rejectPaymentId').value;
+            const motivo = document.getElementById('rejectPaymentMotivo').value.trim();
+
+            if(!motivo) {
+                alert("Ingrese el motivo del rechazo.");
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/pagos/${id}/rechazar`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-role': userRole,
+                        'x-user-id': userId
+                    },
+                    body: JSON.stringify({ motivo })
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    alert(data.mensaje);
+                    cerrarRechazoPago();
+                    consultarPagosPendientes();
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch {
+                alert("Error de red.");
+            }
+        }
+
+
+        // --- CONTROLADORES DE ROL: COPROPIETARIO ---
+
+        async function cargarMiEstadoDeCuenta() {
+            try {
+                // Hacemos una consulta general enviando nuestro usuario ID, filtrando por casa
+                const res = await fetch(`/api/copropietarios`, {
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                const list = await res.json();
+                // Buscar nuestro residente (que coincide con la villa/casa asignada al usuario o id)
+                // Para el prototipo, buscamos por usuario_id == userId
+                const miPerfil = list.find(c => c.usuario_id === parseInt(userId, 10));
+                
+                if (miPerfil) {
+                    document.getElementById('coproInfoNombre').innerText = miPerfil.nombre;
+                    document.getElementById('coproInfoCedula').innerText = miPerfil.cedula;
+                    document.getElementById('coproInfoVilla').innerText = miPerfil.casa;
+                    document.getElementById('coproInfoTel').innerText = miPerfil.telefono;
+                    document.getElementById('coproInfoEmail').innerText = miPerfil.email;
+
+                    // Saldo
+                    const saldoEl = document.getElementById('coproInfoSaldo');
+                    saldoEl.innerText = `$${parseFloat(miPerfil.saldo).toFixed(2)}`;
+                    saldoEl.className = miPerfil.saldo > 0 ? 
+                        'text-4xl font-extrabold mt-2 font-mono text-rose-400' : 
+                        'text-4xl font-extrabold mt-2 font-mono text-emerald-400';
+
+                    const badge = document.getElementById('coproStatusBadge');
+                    if (miPerfil.saldo > 0) {
+                        badge.innerText = "Cuenta con deudas pendientes";
+                        badge.className = "p-3 rounded-xl text-center text-xs font-bold bg-rose-500/10 border border-rose-500/20 text-rose-400";
+                    } else {
+                        badge.innerText = "Cuenta al día (Sin deudas)";
+                        badge.className = "p-3 rounded-xl text-center text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400";
+                    }
+                }
+            } catch {}
+        }
+
+        async function cargarMisDeudas() {
+            try {
+                const res = await fetch('/api/pagos/copropietario/deudas', {
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                const list = await res.json();
+                const tbody = document.getElementById('tablaCoproDeudas');
+                tbody.innerHTML = '';
+
+                if (list.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">No registra deudas pendientes en su planilla.</td></tr>`;
+                    return;
+                }
+
+                const hoy = new Date();
+                list.forEach(d => {
+                    // Calcular mora aproximada en tiempo real
+                    const fechaVenc = new Date(d.fecha_vencimiento);
+                    let diasRetraso = 0;
+                    let interesMora = 0.0;
+                    if (hoy > fechaVenc && d.estado === 'PENDIENTE') {
+                        const diffTime = Math.abs(hoy - fechaVenc);
+                        diasRetraso = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        interesMora = d.monto * (0.12 / 365) * diasRetraso;
+                    }
+
+                    const total = d.monto + interesMora;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-700/20 border-b border-slate-800/40 transition">
+                            <td class="p-4 font-bold text-slate-200">${d.mes}</td>
+                            <td class="p-4">$${parseFloat(d.monto).toFixed(2)}</td>
+                            <td class="p-4 font-mono text-slate-400">${d.fecha_vencimiento}</td>
+                            <td class="p-4 font-mono">${diasRetraso} días</td>
+                            <td class="p-4 text-rose-400 font-bold">$${parseFloat(interesMora).toFixed(2)}</td>
+                            <td class="p-4 text-right font-extrabold text-slate-100">$${parseFloat(total).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+            } catch {}
+        }
+
+        async function cargarMisPagos() {
+            try {
+                const res = await fetch('/api/pagos/copropietario/pagos', {
+                    headers: { 'x-user-role': userRole, 'x-user-id': userId }
+                });
+                const list = await res.json();
+                const tbody = document.getElementById('tablaCoproHistorial');
+                tbody.innerHTML = '';
+
+                if(list.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">No registra reportes de pagos en el historial.</td></tr>`;
+                    return;
+                }
+
+                list.forEach(p => {
+                    let descStatus = '';
+                    if (p.estado === 'PENDIENTE_VALIDACION') {
+                        descStatus = `<span class="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded">En Revisión</span>`;
+                    } else if (p.estado === 'APROBADO') {
+                        descStatus = `<span class="bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded">Aprobado</span>`;
+                    } else {
+                        descStatus = `<span class="bg-red-500/10 text-red-400 font-bold px-2 py-0.5 rounded">Rechazado</span>`;
+                    }
+
+                    let accionDesc = '';
+                    if (p.estado === 'APROBADO' && p.recibo_id) {
+                        accionDesc = `<button onclick="descargarReciboPdf('${p.recibo_id}')" class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 font-bold px-3 py-1 rounded transition border border-indigo-500/10 cursor-pointer">Recibo PDF</button>`;
+                    } else if (p.estado === 'RECHAZADO') {
+                        accionDesc = `<span class="text-rose-400/90 font-medium text-[10px]">${p.motivo_rechazo || 'Comprobante no válido.'}</span>`;
+                    } else {
+                        accionDesc = `<span class="text-slate-500 italic">Pendiente</span>`;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-700/20 border-b border-slate-800/40 transition">
+                            <td class="p-4 text-slate-400">${new Date(p.fecha_registro).toLocaleDateString()}</td>
+                            <td class="p-4 font-mono">${p.comprobante_id}</td>
+                            <td class="p-4 font-mono">${p.periodo || 'N/A'}</td>
+                            <td class="p-4 font-bold text-slate-200">$${parseFloat(p.monto_pagado).toFixed(2)}</td>
+                            <td class="p-4">${descStatus}</td>
+                            <td class="p-4">${accionDesc}</td>
+                        </tr>
+                    `;
+                });
+            } catch {}
+        }
+
+        async function ejecutarReportePago(event) {
+            event.preventDefault();
+            const sMsg = document.getElementById('reportSuccessAlert');
+            const eMsg = document.getElementById('reportErrorAlert');
+            sMsg.classList.add('hidden'); eMsg.classList.add('hidden');
+
+            const ref = document.getElementById('pagoRef').value.trim();
+            const monto = document.getElementById('pagoMonto').value;
+            const metodo = document.getElementById('pagoMetodo').value;
+            const periodo = document.getElementById('pagoPeriodo').value;
+            const img = document.getElementById('pagoImg').value.trim();
+
+            try {
+                const res = await fetch('/api/pagos/registrar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-role': userRole,
+                        'x-user-id': userId
+                    },
+                    body: JSON.stringify({ comprobanteId: ref, monto: parseFloat(monto), metodo, periodo, comprobanteImg: img })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    sMsg.innerText = data.mensaje;
+                    sMsg.classList.remove('hidden');
+                    document.getElementById('paymentReportForm').reset();
+                    cargarMisPagos();
+                } else {
+                    eMsg.innerText = data.error || 'Error al reportar el pago.';
+                    eMsg.classList.remove('hidden');
+                }
+            } catch {
+                eMsg.innerText = "Error de red.";
+                eMsg.classList.remove('hidden');
+            }
+        }
+
+        function descargarReciboPdf(reciboId) {
+            window.open(`/api/pagos/recibo/${reciboId}?x-user-role=${userRole}&x-user-id=${userId}`);
+        }
+
+    </script>
+</body>
+</html>

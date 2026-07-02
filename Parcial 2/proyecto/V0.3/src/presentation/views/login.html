@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AliGest - Portal de Control de Accesos</title>
+    <!-- Importar tipografía moderna Outfit de Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top right, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 1));
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.45);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="flex justify-center items-center min-h-screen text-slate-100 p-4">
+    
+    <div class="glass-panel p-8 md:p-10 rounded-3xl w-full max-w-md transition-all duration-500 scale-100 hover:shadow-indigo-500/5 hover:shadow-2xl">
+        <div class="text-center mb-8">
+            <!-- Emblema visual representativo -->
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-blue-500 text-white font-extrabold text-2xl mb-4 shadow-lg shadow-indigo-500/20">
+                AG
+            </div>
+            <h1 id="portalTitle" class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 bg-clip-text text-transparent">
+                AliGest Condominios
+            </h1>
+            <p id="portalSub" class="text-slate-400 text-xs mt-2">Sistema Web de Gestión de Expensas - La Primavera</p>
+        </div>
+
+        <!-- FORMULARIO DE INICIO DE SESIÓN -->
+        <div id="loginForm" class="space-y-5">
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Nombre de Usuario</label>
+                <input type="text" id="username" placeholder="casa14 o admin_espe" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition duration-300">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Contraseña</label>
+                <input type="password" id="password" placeholder="••••••••" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition duration-300">
+            </div>
+            <button type="button" onclick="ejecutarLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition duration-300 shadow-lg shadow-indigo-600/20 cursor-pointer">
+                Ingresar al Portal
+            </button>
+            <div class="flex justify-between items-center text-xs mt-6 border-t border-slate-800 pt-4">
+                <a href="#" onclick="toggleForm('register')" class="text-indigo-400 hover:text-indigo-300 font-medium transition">Crear cuenta</a>
+                <a href="#" onclick="toggleForm('recovery')" class="text-slate-400 hover:text-slate-200 transition">¿Olvidaste tu contraseña?</a>
+            </div>
+            <div id="errorMsg" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+        </div>
+
+        <!-- FORMULARIO DE REGISTRO (CON EMAIL REQUERIDO) -->
+        <div id="registerForm" class="hidden space-y-5">
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Usuario de Acceso</label>
+                <input type="text" id="regUsername" placeholder="nombre_usuario" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-300">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Correo Electrónico</label>
+                <input type="email" id="regEmail" placeholder="usuario@gmail.com" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-300">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Contraseña del Sistema</label>
+                <input type="password" id="regPassword" placeholder="••••••••" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition duration-300">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Rol Asignado (RBAC)</label>
+                <select id="regRole" class="w-full bg-slate-950 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-300 focus:outline-none focus:border-emerald-500 transition duration-300">
+                    <option value="ADMINISTRADOR">ADMINISTRADOR (Gestión)</option>
+                    <option value="COPROPIETARIO">COPROPIETARIO (Residente)</option>
+                </select>
+            </div>
+            <button type="button" onclick="ejecutarRegistro()" class="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition duration-300 shadow-lg shadow-emerald-600/20 cursor-pointer">
+                Registrar Usuario
+            </button>
+            <p class="text-center text-xs text-slate-400 mt-6 border-t border-slate-800 pt-4">
+                ¿Ya tienes una cuenta? <a href="#" onclick="toggleForm('login')" class="text-emerald-400 hover:text-emerald-300 font-medium transition">Inicia Sesión</a>
+            </p>
+            <div id="regSuccessMsg" class="hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+            <div id="regErrorMsg" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+        </div>
+
+        <!-- FORMULARIO DE RECUPERACIÓN (SOLICITAR CÓDIGO POR EMAIL) -->
+        <div id="recoveryForm" class="hidden space-y-5">
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Correo Electrónico Registrado</label>
+                <input type="email" id="recEmail" placeholder="usuario@gmail.com" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition duration-300">
+            </div>
+            <button type="button" onclick="solicitarCodigoRecuperacion()" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition duration-300 shadow-lg cursor-pointer">
+                Enviar Código de Recuperación
+            </button>
+            <p class="text-center text-xs text-slate-400 mt-6 border-t border-slate-800 pt-4">
+                <a href="#" onclick="toggleForm('login')" class="text-slate-400 hover:text-slate-200 transition">Volver al Inicio de Sesión</a>
+            </p>
+            <div id="recSuccessMsg" class="hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+            <div id="recErrorMsg" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+        </div>
+
+        <!-- FORMULARIO DE RESTABLECIMIENTO (CONFIRMAR CÓDIGO) -->
+        <div id="recoveryConfirmForm" class="hidden space-y-5">
+            <div class="bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] p-3 rounded-xl leading-relaxed">
+                Código enviado. Por favor, revise la terminal del servidor de Node.js para copiar el código simulado.
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Confirmar Usuario</label>
+                <input type="text" id="recUsername" placeholder="nombre_usuario" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition duration-300">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Código de 6 Dígitos</label>
+                <input type="text" id="recCodigo" placeholder="123456" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition duration-300">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Nueva Contraseña</label>
+                <input type="password" id="recPassword" placeholder="••••••••" class="w-full bg-slate-950/60 border border-slate-700/60 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition duration-300">
+            </div>
+            <button type="button" onclick="restablecerContrasena()" class="w-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition duration-300 shadow-lg cursor-pointer">
+                Confirmar y Cambiar Clave
+            </button>
+            <p class="text-center text-xs text-slate-400 mt-6 border-t border-slate-800 pt-4">
+                <a href="#" onclick="toggleForm('login')" class="text-slate-400 hover:text-slate-200 transition">Cancelar y Volver</a>
+            </p>
+            <div id="recConfSuccessMsg" class="hidden bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+            <div id="recConfErrorMsg" class="hidden bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl text-center font-medium"></div>
+        </div>
+
+    </div>
+
+    <script>
+        function toggleForm(formType) {
+            // Ocultar todos
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('recoveryForm').classList.add('hidden');
+            document.getElementById('recoveryConfirmForm').classList.add('hidden');
+
+            // Resetear textos
+            document.getElementById('portalTitle').innerText = 'AliGest Condominios';
+            document.getElementById('portalSub').innerText = 'Sistema Web de Gestión de Expensas - La Primavera';
+
+            // Ocultar alertas
+            document.getElementById('errorMsg').classList.add('hidden');
+            document.getElementById('regSuccessMsg').classList.add('hidden');
+            document.getElementById('regErrorMsg').classList.add('hidden');
+            document.getElementById('recSuccessMsg').classList.add('hidden');
+            document.getElementById('recErrorMsg').classList.add('hidden');
+            document.getElementById('recConfSuccessMsg').classList.add('hidden');
+            document.getElementById('recConfErrorMsg').classList.add('hidden');
+
+            if (formType === 'login') {
+                document.getElementById('loginForm').classList.remove('hidden');
+            } else if (formType === 'register') {
+                document.getElementById('registerForm').classList.remove('hidden');
+                document.getElementById('portalTitle').innerText = 'Registro AliGest';
+                document.getElementById('portalSub').innerText = 'Registra un nuevo perfil de acceso';
+            } else if (formType === 'recovery') {
+                document.getElementById('recoveryForm').classList.remove('hidden');
+                document.getElementById('portalTitle').innerText = 'Restablecer Clave';
+                document.getElementById('portalSub').innerText = 'Recupera el acceso con tu correo electrónico';
+            }
+        }
+
+        async function ejecutarLogin() {
+            const eMsg = document.getElementById('errorMsg');
+            eMsg.classList.add('hidden');
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    // Guardar datos en localstorage para control de sesión
+                    localStorage.setItem('userRole', data.session.role);
+                    localStorage.setItem('userId', data.session.id);
+                    localStorage.setItem('username', data.session.username);
+                    localStorage.setItem('userEmail', data.session.email);
+                    
+                    window.location.href = '/dashboard';
+                } else {
+                    eMsg.innerText = data.error || 'Error al iniciar sesión.';
+                    eMsg.classList.remove('hidden');
+                }
+            } catch {
+                eMsg.innerText = "Error en la comunicación con el servidor.";
+                eMsg.classList.remove('hidden');
+            }
+        }
+
+        async function ejecutarRegistro() {
+            const sMsg = document.getElementById('regSuccessMsg');
+            const eMsg = document.getElementById('regErrorMsg');
+            sMsg.classList.add('hidden'); eMsg.classList.add('hidden');
+
+            const u = document.getElementById('regUsername').value.trim();
+            const m = document.getElementById('regEmail').value.trim();
+            const p = document.getElementById('regPassword').value;
+            const r = document.getElementById('regRole').value;
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, email: m, password: p, role: r })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    sMsg.innerText = "¡Usuario registrado! Redirigiendo...";
+                    sMsg.classList.remove('hidden');
+                    setTimeout(() => { toggleForm('login'); }, 1500);
+                } else {
+                    eMsg.innerText = data.error || 'Error al registrar usuario.';
+                    eMsg.classList.remove('hidden');
+                }
+            } catch {
+                eMsg.innerText = "Error en la comunicación.";
+                eMsg.classList.remove('hidden');
+            }
+        }
+
+        async function solicitarCodigoRecuperacion() {
+            const sMsg = document.getElementById('recSuccessMsg');
+            const eMsg = document.getElementById('recErrorMsg');
+            sMsg.classList.add('hidden'); eMsg.classList.add('hidden');
+
+            const email = document.getElementById('recEmail').value.trim();
+            if (!email) {
+                eMsg.innerText = "El correo electrónico es obligatorio.";
+                eMsg.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/recuperar-codigo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    sMsg.innerHTML = `Código generado con éxito: <br><b>${data.codigoSimulado}</b>`;
+                    sMsg.classList.remove('hidden');
+                    // Pasar al siguiente formulario
+                    setTimeout(() => {
+                        document.getElementById('recoveryForm').classList.add('hidden');
+                        document.getElementById('recoveryConfirmForm').classList.remove('hidden');
+                    }, 2200);
+                } else {
+                    eMsg.innerText = data.error || 'Error al solicitar código.';
+                    eMsg.classList.remove('hidden');
+                }
+            } catch {
+                eMsg.innerText = "Error en la comunicación.";
+                eMsg.classList.remove('hidden');
+            }
+        }
+
+        async function restablecerContrasena() {
+            const sMsg = document.getElementById('recConfSuccessMsg');
+            const eMsg = document.getElementById('recConfErrorMsg');
+            sMsg.classList.add('hidden'); eMsg.classList.add('hidden');
+
+            const u = document.getElementById('recUsername').value.trim();
+            const c = document.getElementById('recCodigo').value.trim();
+            const p = document.getElementById('recPassword').value;
+
+            try {
+                const response = await fetch('/api/auth/recuperar-confirmar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, codigo: c, nuevaContrasena: p })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    sMsg.innerText = "¡Contraseña restablecida! Redirigiendo...";
+                    sMsg.classList.remove('hidden');
+                    setTimeout(() => { toggleForm('login'); }, 1500);
+                } else {
+                    eMsg.innerText = data.error || 'Error al restablecer contraseña.';
+                    eMsg.classList.remove('hidden');
+                }
+            } catch {
+                eMsg.innerText = "Error en la comunicación.";
+                eMsg.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

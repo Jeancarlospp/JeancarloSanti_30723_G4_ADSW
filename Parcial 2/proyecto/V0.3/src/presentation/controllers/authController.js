@@ -1,0 +1,89 @@
+const express = require('express');
+const router = express.Router();
+const authService = require('../../core/business/services/AuthService');
+const usuarioRepository = require('../../data/repositories/usuarioRepository');
+const { verificarSesion, permitirSolo, verificarUltimoAdministrador } = require('../middlewares/authMiddleware');
+
+// Iniciar Sesión (RF-1.1)
+router.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const session = await authService.login(username, password);
+        res.status(200).json({ mensaje: "Autenticación correcta", session });
+    } catch (err) {
+        res.status(401).json({ error: err.message });
+    }
+});
+
+// Registrar nuevo usuario
+router.post('/register', async (req, res) => {
+    try {
+        const { username, email, password, role } = req.body;
+        const user = await authService.registrarUsuario(username, email, password, role || 'ADMINISTRADOR');
+        res.status(201).json({ mensaje: "Usuario registrado con éxito", user });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// RF-1.2: Solicitar código de recuperación por Correo Electrónico
+router.post('/recuperar-codigo', async (req, res) => {
+    try {
+        const { email } = req.body;
+        const result = await authService.generarCodigoRecuperacion(email);
+        res.status(200).json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// RF-1.2: Restablecer contraseña con código de verificación
+router.post('/recuperar-confirmar', async (req, res) => {
+    try {
+        const { username, codigo, nuevaContrasena } = req.body;
+        const result = await authService.recuperarContrasena(username, codigo, nuevaContrasena);
+        res.status(200).json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// RF-1.3: Listado de perfiles (ADMINISTRADOR únicamente)
+router.get('/usuarios', verificarSesion, permitirSolo('ADMINISTRADOR'), async (req, res) => {
+    try {
+        const list = await usuarioRepository.findAll();
+        res.status(200).json(list);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// RF-1.3: Modificar perfil y estado (ADMINISTRADOR únicamente)
+router.put('/usuarios/:id', verificarSesion, permitirSolo('ADMINISTRADOR'), verificarUltimoAdministrador, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role, status } = req.body;
+        
+        if (!role || !status) {
+            return res.status(400).json({ error: "El rol y el estado son campos obligatorios." });
+        }
+
+        await usuarioRepository.updatePerfil(id, role, status);
+        res.status(200).json({ mensaje: "Perfil de usuario modificado correctamente." });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Eliminar perfiles de usuarios (ADMINISTRADOR únicamente)
+router.delete('/usuarios/:id', verificarSesion, permitirSolo('ADMINISTRADOR'), verificarUltimoAdministrador, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await usuarioRepository.delete(id);
+        res.status(200).json({ mensaje: "Perfil eliminado con éxito del sistema." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+module.exports = router;
