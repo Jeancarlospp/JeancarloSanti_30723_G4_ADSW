@@ -1,0 +1,18 @@
+{
+  "name": "aligest-prototype",
+  "version": "1.0.0",
+  "description": "Prototipo funcional AliGest - Tres Capas",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "express": "^4.19.2",
+    "multer": "^2.2.0",
+    "pdfkit": "^0.19.1",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
+  }
+}
