@@ -5,10 +5,61 @@ const { CalculadorMoraContext, EcuandorianMora12Strategy } = require('../pattern
 const notificationService = require('./NotificationService');
 const Pago = require('../../domain/models/Pago');
 
+// RF-3.3/RF-3.4: la expensa de un período vence el día 5 del mes siguiente
+function calcularVencimientoExpensa(periodo) {
+    const [anioStr, mesStr] = periodo.split('-');
+    let anio = parseInt(anioStr, 10);
+    let mes = parseInt(mesStr, 10) + 1; // mes (1-12) del período + 1 = mes siguiente
+    if (mes > 12) {
+        mes = 1;
+        anio += 1;
+    }
+    return `${anio}-${String(mes).padStart(2, '0')}-05`;
+}
+
 class PagoService {
     // Listar pagos pendientes de validación administrativa
     async obtenerPagosPendientes() {
         return await pagoRepository.getPagosPendientes();
+    }
+
+    // RF-3.3/RF-3.4: Generar la expensa (deuda) mensual de un período para todos los
+    // copropietarios activos, sin duplicar el período si ya fue generado previamente.
+    async generarExpensasMensuales(periodo, montoBase) {
+        if (!periodo || !/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) {
+            throw new Error("El período debe tener el formato YYYY-MM.");
+        }
+
+        const monto = parseFloat(montoBase);
+        if (isNaN(monto) || monto <= 0) {
+            throw new Error("El monto de la expensa mensual debe ser un número positivo.");
+        }
+
+        const fechaVencimiento = calcularVencimientoExpensa(periodo);
+        const copropietarios = await copropietarioRepository.findAll();
+
+        let generadas = 0;
+        let omitidas = 0;
+
+        for (const copro of copropietarios) {
+            const existente = await pagoRepository.findDeudaPorPeriodo(copro.id, periodo);
+            if (existente) {
+                omitidas++;
+                continue;
+            }
+            await pagoRepository.createDeuda(copro.id, periodo, monto, 'PENDIENTE', fechaVencimiento);
+            generadas++;
+        }
+
+        return {
+            mensaje: `Expensas del período ${periodo} generadas correctamente.`,
+            periodo,
+            montoBase: monto,
+            fechaVencimiento,
+            generadas,
+            omitidas,
+            totalCopropietarios: copropietarios.length
+        };
     }
 
     // Listar pagos de un copropietario por su usuario ID

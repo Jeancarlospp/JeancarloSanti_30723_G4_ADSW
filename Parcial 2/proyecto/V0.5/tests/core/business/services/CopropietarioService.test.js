@@ -98,6 +98,56 @@ describe('CopropietarioService (Integration with MongoDB Memory Server)', () => 
         expect(copro.casa).toBe('Villa 1B');
     });
 
+    test('RF-2.4: Debería permitir cambiar la cédula (nuevo representante) y regenerar la contraseña temporal', async () => {
+        await copropietarioService.crearCopropietario({
+            cedula: '1721151247',
+            nombre: 'Juan Original',
+            casa: 'Villa 2',
+            telefono: '0987654321',
+            email: 'juan2@correo.com'
+        });
+
+        const actualizado = await copropietarioService.actualizarDatos('1721151247', {
+            cedula: '3000000012',
+            nombre: 'Pedro Nuevo Representante'
+        });
+
+        expect(actualizado.cedula).toBe('3000000012');
+        expect(actualizado.passwordTemporal).toEqual(expect.stringMatching(/^Temp-\d{4}!$/));
+
+        // El registro anterior con la cédula original ya no debe existir
+        const anterior = await copropietarioRepository.findByCedula('1721151247');
+        expect(anterior).toBeNull();
+
+        const nuevo = await copropietarioRepository.findByCedula('3000000012');
+        expect(nuevo.nombre).toBe('Pedro Nuevo Representante');
+
+        // La contraseña del usuario debe haber sido regenerada y forzar cambio obligatorio
+        const usuario = await usuarioRepository.findById(nuevo.usuario_id);
+        expect(usuario.must_change_password).toBe(1);
+    });
+
+    test('RF-2.4: No debería permitir cambiar a una cédula ya registrada por otro copropietario', async () => {
+        await copropietarioService.crearCopropietario({
+            cedula: '1721151247',
+            nombre: 'Juan Uno',
+            casa: 'Villa 3',
+            telefono: '0987654321',
+            email: 'juan3@correo.com'
+        });
+        await copropietarioService.crearCopropietario({
+            cedula: '3000000012',
+            nombre: 'Juan Dos',
+            casa: 'Villa 4',
+            telefono: '0987654322',
+            email: 'juan4@correo.com'
+        });
+
+        await expect(copropietarioService.actualizarDatos('1721151247', {
+            cedula: '3000000012'
+        })).rejects.toThrow("ya está registrada en el sistema");
+    });
+
     test('Debería bloquear la eliminación si tiene deudas pendientes y realizar borrado lógico/físico correcto si está solvente', async () => {
         const creado = await copropietarioService.crearCopropietario({
             cedula: '1721151247',

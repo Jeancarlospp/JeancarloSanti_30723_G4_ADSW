@@ -47,12 +47,37 @@ describe('Auth Middleware', () => {
 
         test('Debería denegar el acceso (403) si el rol es inválido', () => {
             mockReq.headers['x-user-role'] = 'INVITADO';
-            
+
             verificarSesion(mockReq, mockRes, nextFunction);
 
             expect(mockRes.status).toHaveBeenCalledWith(403);
             expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
                 error: expect.stringContaining("Acceso denegado")
+            }));
+            expect(nextFunction).not.toHaveBeenCalled();
+        });
+
+        test('RNF-01: Debería autorizar si la última actividad registrada es reciente', () => {
+            mockReq.headers['x-user-role'] = 'COPROPIETARIO';
+            mockReq.headers['x-user-id'] = '60c72b2f9b1d8b2bad123456';
+            mockReq.headers['x-last-activity'] = Date.now().toString();
+
+            verificarSesion(mockReq, mockRes, nextFunction);
+
+            expect(nextFunction).toHaveBeenCalled();
+        });
+
+        test('RNF-01: Debería denegar el acceso (401) por sesión expirada tras 2 horas de inactividad', () => {
+            mockReq.headers['x-user-role'] = 'COPROPIETARIO';
+            mockReq.headers['x-user-id'] = '60c72b2f9b1d8b2bad123456';
+            mockReq.headers['x-last-activity'] = (Date.now() - (2 * 60 * 60 * 1000 + 1000)).toString();
+
+            verificarSesion(mockReq, mockRes, nextFunction);
+
+            expect(mockRes.status).toHaveBeenCalledWith(401);
+            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+                sesionExpirada: true,
+                error: expect.stringContaining("expirada")
             }));
             expect(nextFunction).not.toHaveBeenCalled();
         });

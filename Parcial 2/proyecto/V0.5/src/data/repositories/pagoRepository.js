@@ -126,6 +126,11 @@ class PagoRepository {
         return row._id.toString();
     }
 
+    async findDeudaPorPeriodo(copropietarioId, mes) {
+        const row = await Deuda.findOne({ copropietario_id: copropietarioId, mes });
+        return mapDeuda(row);
+    }
+
     async updateDeuda(id, estado, monto) {
         const res = await Deuda.updateOne({ _id: id }, { estado, monto });
         return res.modifiedCount;

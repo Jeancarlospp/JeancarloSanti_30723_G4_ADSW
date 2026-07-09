@@ -1,5 +1,8 @@
 const usuarioRepository = require('../../data/repositories/usuarioRepository');
 
+// RNF-01: expiración de sesión tras 2 horas de inactividad
+const SESION_MAX_INACTIVIDAD_MS = 2 * 60 * 60 * 1000;
+
 function verificarSesion(req, res, next) {
     // Leer rol e ID de usuario del header HTTP
     const role = req.headers['x-user-role'];
@@ -10,6 +13,18 @@ function verificarSesion(req, res, next) {
     if (role !== 'ADMINISTRADOR' && role !== 'COPROPIETARIO') {
         return res.status(403).json({ error: "Acceso denegado. Rol inválido o desconocido." });
     }
+
+    // El cliente reenvía en cada solicitud la marca de tiempo de su última
+    // interacción real (clic, tecla, scroll); si ese lapso supera 2 horas,
+    // la sesión se considera expirada por inactividad.
+    const lastActivity = parseInt(req.headers['x-last-activity'], 10);
+    if (!isNaN(lastActivity) && Date.now() - lastActivity > SESION_MAX_INACTIVIDAD_MS) {
+        return res.status(401).json({
+            error: "Sesión expirada por inactividad. Por favor, inicie sesión nuevamente.",
+            sesionExpirada: true
+        });
+    }
+
     req.user = { role, id: userId || null };
     next();
 }

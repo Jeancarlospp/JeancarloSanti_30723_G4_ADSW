@@ -86,16 +86,16 @@ describe('PagoService (Integration with MongoDB Memory Server)', () => {
         expect(resultado.comprobante_id).toContain('AGE-'); // Recibo digital inmutable
         
         // --- Cálculo Matemático de Amortización FIFO ---
-        // Deuda 1 (retraso de 10 días):
-        // Interés = 100 * (0.12 / 365) * 10 = 0.3287 -> Redondeado a 0.33
-        // Total con mora = 100.33
+        // Deuda 1 (vencida, recargo fijo del 12% aplicado una sola vez - RF-3.3):
+        // Interés = 100 * 0.12 = 12.00
+        // Total con mora = 112.00
         // El pago fue de $150.00.
-        // Se cancela Deuda 1 al completo (consume 100.33 del pago).
-        // Queda para amortizar: 150.00 - 100.33 = $49.67.
+        // Se cancela Deuda 1 al completo (consume 112.00 del pago).
+        // Queda para amortizar: 150.00 - 112.00 = $38.00.
         // Deuda 2 (Vigente):
         // Mora = 0 (no vencida).
-        // Se aplica el capital restante de 49.67 directamente.
-        // Nuevo saldo de la Deuda 2: 100.00 - 49.67 = $50.33.
+        // Se aplica el capital restante de 38.00 directamente.
+        // Nuevo saldo de la Deuda 2: 100.00 - 38.00 = $62.00.
 
         const deudasActualizadas = await pagoRepository.getDeudasByCopropietario(copro.id);
         const de1 = deudasActualizadas.find(d => d.id === d1Id);
@@ -103,9 +103,9 @@ describe('PagoService (Integration with MongoDB Memory Server)', () => {
 
         expect(de1.estado).toBe('PAGADO');
         expect(de1.monto).toBe(0); // Cancelada por completo
-        
+
         expect(de2.estado).toBe('PENDIENTE');
-        expect(de2.monto).toBe(50.33); // Amortizada parcialmente
+        expect(de2.monto).toBe(62.00); // Amortizada parcialmente
 
         // El saldo de cuenta total del copropietario debió debitarse: 200.00 - 150.00 = $50.00
         const coproActualizado = await copropietarioRepository.findById(copro.id);
@@ -137,5 +137,41 @@ describe('PagoService (Integration with MongoDB Memory Server)', () => {
         const pagoDb = await pagoRepository.findPagoById(pagoId);
         expect(pagoDb.estado).toBe('RECHAZADO');
         expect(pagoDb.motivo_rechazo).toBe("Comprobante borroso");
+    });
+
+    test('Debería generar la expensa mensual para todos los copropietarios con vencimiento el día 5 del mes siguiente', async () => {
+        const resultado = await pagoService.generarExpensasMensuales('2026-08', 100.00);
+
+        expect(resultado.generadas).toBe(1);
+        expect(resultado.omitidas).toBe(0);
+        expect(resultado.fechaVencimiento).toBe('2026-09-05');
+
+        const deudas = await pagoRepository.getDeudasByCopropietario(copro.id);
+        const deudaGenerada = deudas.find(d => d.mes === '2026-08');
+        expect(deudaGenerada).toBeDefined();
+        expect(deudaGenerada.monto).toBe(100.00);
+        expect(deudaGenerada.estado).toBe('PENDIENTE');
+        expect(deudaGenerada.fecha_vencimiento).toBe('2026-09-05');
+    });
+
+    test('No debería duplicar la expensa mensual si ya fue generada para el mismo período', async () => {
+        await pagoService.generarExpensasMensuales('2026-08', 100.00);
+        const segundaVez = await pagoService.generarExpensasMensuales('2026-08', 100.00);
+
+        expect(segundaVez.generadas).toBe(0);
+        expect(segundaVez.omitidas).toBe(1);
+
+        const deudas = await pagoRepository.getDeudasByCopropietario(copro.id);
+        expect(deudas.filter(d => d.mes === '2026-08')).toHaveLength(1);
+    });
+
+    test('Debería rechazar un período con formato inválido', async () => {
+        await expect(pagoService.generarExpensasMensuales('agosto-2026', 100.00))
+            .rejects.toThrow("formato YYYY-MM");
+    });
+
+    test('Debería calcular el vencimiento de diciembre pasando correctamente al año siguiente', async () => {
+        const resultado = await pagoService.generarExpensasMensuales('2026-12', 100.00);
+        expect(resultado.fechaVencimiento).toBe('2027-01-05');
     });
 });

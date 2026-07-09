@@ -11,9 +11,9 @@ class CalculadorMoraContext {
 class EcuandorianMora12Strategy {
     calcularMora(monto, diasRetraso) {
         if (diasRetraso <= 0) return 0;
-        // Interés del 12% nominal anualizado
-        const tasaDiaria = 0.12 / 365;
-        const interes = monto * tasaDiaria * diasRetraso;
+        // RF-3.3: Recargo fijo del 12% sobre la deuda vencida, aplicado una sola
+        // vez por período (no se prorratea ni se acumula por días de atraso).
+        const interes = monto * 0.12;
         return parseFloat(interes.toFixed(2));
     }
 }

@@ -68,6 +68,15 @@ class UsuarioRepository {
         return res.modifiedCount;
     }
 
+    // RF-2.4: Regenerar contraseña temporal al cambiar el representante (cédula) de un copropietario
+    async updatePasswordAndForceMustChange(id, hashedPassword) {
+        const res = await Usuario.updateOne({ _id: id }, {
+            password: hashedPassword,
+            must_change_password: 1
+        });
+        return res.modifiedCount;
+    }
+
     async incrementFailedAttempts(username) {
         const res = await Usuario.updateOne({ username }, {
             $inc: { failed_attempts: 1 }

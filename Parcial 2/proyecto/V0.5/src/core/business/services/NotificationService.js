@@ -1,3 +1,5 @@
+const pagoRepository = require('../../../data/repositories/pagoRepository');
+
 class NotificationService {
     constructor() {
         this.cola = [];
@@ -31,11 +33,20 @@ class NotificationService {
             } catch (err) {
                 console.error(`[WhatsApp API Retry] Fallo temporal para ${item.telefono}: ${err.message}.`);
                 if (item.intentos >= 3) {
-                    console.error(`[WhatsApp API Error] Mensaje para ${item.telefono} descartado permanentemente después de 3 intentos fallidos.`);
+                    console.error(`[WhatsApp API Error] Mensaje para ${item.telefono} descartado permanentemente después de 3 intentos fallidos. En cola de reintentos pendientes.`);
+                    // RF-04: notificar al Administrador (registro de auditoría) del fallo permanente
+                    try {
+                        await pagoRepository.registrarAuditoria("NOTIFICACION_WHATSAPP_FALLO_PERMANENTE", {
+                            telefono: item.telefono,
+                            intentos: item.intentos,
+                            mensaje: `Error al enviar notificación a ${item.telefono}. Mensaje en cola de reintentos.`
+                        });
+                    } catch { /* la auditoría no debe interrumpir el procesamiento de la cola */ }
                     this.cola.shift();
                 } else {
-                    // Retrasar el reintento 1.5 segundos
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    // RF-04: reintentar cada 30 segundos hasta un máximo de 3 intentos
+                    const esTest = process.env.NODE_ENV === 'test';
+                    await new Promise(resolve => setTimeout(resolve, esTest ? 0 : 30000));
                 }
             }
         }

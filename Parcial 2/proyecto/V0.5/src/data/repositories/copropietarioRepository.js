@@ -55,13 +55,18 @@ class CopropietarioRepository {
     }
 
     async update(cedula, datos) {
-        const res = await Copropietario.updateOne({ cedula }, {
+        const setFields = {
             nombre: datos.nombre,
             casa: datos.casa,
             telefono: datos.telefono,
             email: datos.email,
             saldo: datos.saldo !== undefined ? parseFloat(datos.saldo) : 0.0
-        });
+        };
+        // RF-2.4: Permitir actualizar la cédula (cambio de representante)
+        if (datos.cedula) {
+            setFields.cedula = datos.cedula;
+        }
+        const res = await Copropietario.updateOne({ cedula }, setFields);
         return res.modifiedCount;
     }
 

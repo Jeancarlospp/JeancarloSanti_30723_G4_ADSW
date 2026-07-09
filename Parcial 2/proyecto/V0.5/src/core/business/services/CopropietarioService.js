@@ -5,6 +5,7 @@ const usuarioRepository = require('../../../data/repositories/usuarioRepository'
 const pagoRepository = require('../../../data/repositories/pagoRepository');
 const ExcelCopropietarioAdapter = require('../patterns/excelAdapter');
 const Copropietario = require('../../domain/models/Copropietario');
+const Cedula = require('../../domain/valueObjects/Cedula');
 const bcrypt = require('bcrypt');
 
 class CopropietarioService {
@@ -139,8 +140,30 @@ class CopropietarioService {
             }
         }
 
+        // RF-2.4: Cambio de representante (nueva cédula) -> regenerar contraseña temporal
+        let nuevaCedula = copropietario.cedula;
+        let passwordTemporal = null;
+
+        if (datos.cedula) {
+            const cedulaSolicitada = new Cedula(datos.cedula).valor;
+            if (cedulaSolicitada !== copropietario.cedula) {
+                const existeCedula = await copropietarioRepository.findByCedula(cedulaSolicitada);
+                if (existeCedula) {
+                    throw new Error(`La cédula ${cedulaSolicitada} ya está registrada en el sistema.`);
+                }
+
+                nuevaCedula = cedulaSolicitada;
+
+                if (copropietario.usuario_id) {
+                    passwordTemporal = `Temp-${Math.floor(1000 + Math.random() * 9000)}!`;
+                    const hashed = await bcrypt.hash(passwordTemporal, 12);
+                    await usuarioRepository.updatePasswordAndForceMustChange(copropietario.usuario_id, hashed);
+                }
+            }
+        }
+
         const temp = new Copropietario({
-            cedula: cedula,
+            cedula: nuevaCedula,
             nombre: datos.nombre || copropietario.nombre,
             casa: datos.casa || copropietario.casa,
             telefono: datos.telefono || copropietario.telefono,
@@ -151,6 +174,7 @@ class CopropietarioService {
         temp.validarDatosFila();
 
         await copropietarioRepository.update(cedula, {
+            cedula: temp.cedula,
             nombre: temp.nombre,
             casa: temp.casa,
             telefono: temp.telefono,
@@ -158,7 +182,7 @@ class CopropietarioService {
             saldo: temp.saldo
         });
 
-        return temp;
+        return { ...temp, passwordTemporal };
     }
 
     async eliminarCopropietario(id) {

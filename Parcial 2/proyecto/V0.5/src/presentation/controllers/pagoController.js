@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const corePagoService = require('../../core/business/services/PagoService');
 const AuditPaymentServiceDecorator = require('../../core/business/patterns/auditDecorator');
 const { verificarSesion, permitirSolo } = require('../middlewares/authMiddleware');
@@ -7,22 +8,64 @@ const { verificarSesion, permitirSolo } = require('../middlewares/authMiddleware
 // Envolver con el decorador de auditoría (REQ012)
 const decoratedPagoService = AuditPaymentServiceDecorator(corePagoService);
 
-// Copropietario reporta un pago realizado
-router.post('/registrar', verificarSesion, permitirSolo('COPROPIETARIO'), async (req, res) => {
+// RF-3.1: Comprobante bancario en imagen, máximo 5MB, sólo JPG/JPEG/PNG
+const TIPOS_IMAGEN_PERMITIDOS = ['image/jpeg', 'image/jpg', 'image/png'];
+const comprobanteUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (!TIPOS_IMAGEN_PERMITIDOS.includes(file.mimetype)) {
+            return cb(new Error("Formato de archivo no válido. Solo se permiten imágenes en formato JPG, JPEG o PNG."));
+        }
+        cb(null, true);
+    }
+});
+
+function subirComprobante(req, res, next) {
+    comprobanteUpload.single('comprobante')(req, res, (err) => {
+        if (err) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(400).json({ error: "El archivo es demasiado grande. El tamaño máximo permitido es 5 MB. Comprima la imagen e intente nuevamente." });
+            }
+            return res.status(400).json({ error: err.message });
+        }
+        next();
+    });
+}
+
+// Copropietario reporta un pago realizado (RF-3.1: con comprobante de imagen obligatorio)
+router.post('/registrar', verificarSesion, permitirSolo('COPROPIETARIO'), subirComprobante, async (req, res) => {
     try {
-        const { comprobanteId, monto, metodo, periodo, comprobanteImg } = req.body;
+        const { comprobanteId, monto, metodo, periodo } = req.body;
         const usuarioId = req.user.id; // Obtenido del middleware verificarSesion
 
+        if (!req.file) {
+            return res.status(400).json({ error: "Debe adjuntar la foto del comprobante bancario (JPG, JPEG o PNG, máximo 5MB)." });
+        }
+
+        const comprobanteImg = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
         const result = await corePagoService.reportarPagoCopropietario(
-            usuarioId, 
-            comprobanteId, 
-            parseFloat(monto), 
-            metodo, 
-            periodo, 
+            usuarioId,
+            comprobanteId,
+            parseFloat(monto),
+            metodo,
+            periodo,
             comprobanteImg
         );
 
         res.status(200).json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// RF-3.3/RF-3.4: Administrador genera la expensa (deuda) mensual para todos los copropietarios
+router.post('/generar-expensas', verificarSesion, permitirSolo('ADMINISTRADOR'), async (req, res) => {
+    try {
+        const { periodo, monto } = req.body;
+        const resultado = await corePagoService.generarExpensasMensuales(periodo, monto);
+        res.status(200).json(resultado);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
