@@ -5,6 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
     process.env.MONGODB_URI = mongo.getUri('aligest_demo');
     process.env.EMAIL_SIMULATOR = 'true';
     process.env.AUTO_PORT = 'true';
+    process.env.SEED_PRESENTATION = 'true';
 
     const detener = async () => {
         await mongo.stop();

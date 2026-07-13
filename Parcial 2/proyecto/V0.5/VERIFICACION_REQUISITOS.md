@@ -11,7 +11,7 @@ Evidencia automatizada final:
 - 17 suites Jest aprobadas.
 - 85 pruebas aprobadas.
 - Sintaxis validada en 43 archivos JavaScript y en los scripts inline de `login.html` y `dashboard.html`.
-- Importación real de la plantilla: 60 procesados, 60 exitosos y 0 fallidos en menos de 10 segundos.
+- Prueba aislada de importación: genera 60 filas únicamente en memoria, procesa 60 cuentas y elimina los datos al terminar Jest.
 - Smoke test real: login, sesión, importación, creación de cuentas, generación de expensas, carga/visualización de PNG, revisión, aprobación, mora, FIFO y recibo PDF.
 
 ## Checklist funcional
@@ -28,7 +28,7 @@ Evidencia automatizada final:
 - [x] **RF-2.1 Importar:** acepta `.xlsx/.xls`, valida orden y nombres flexibles de columnas, datos ecuatorianos, duplicados por casa/cédula/correo, rango de casas 1–60 y máximo 60 filas; continúa con registros válidos y reporta errores por fila.
 - [x] Cada importado crea automáticamente un usuario `COPROPIETARIO`, contraseña temporal aleatoria cifrada con bcrypt 12 y cambio obligatorio en el primer acceso.
 - [x] Incluye resumen descargable en PDF con totales, credenciales temporales, errores y advertencias.
-- [x] Plantilla de prueba disponible en `archivos_prueba/Plantilla_Importacion_60_Copropietarios.xlsx` con 60 cédulas ecuatorianas válidas.
+- [x] Plantilla vacía disponible en `archivos_prueba/Plantilla_Importacion_Copropietarios.xlsx`; no contiene identidades ni clientes ficticios.
 - [x] **RF-2.2 Leer:** nómina exclusiva del Administrador, filtros de nombre/casa/rango/estado de cuenta/perfil/estado de usuario, orden ascendente/descendente por columnas, mensaje sin resultados y exportación Excel/PDF con los filtros activos.
 - [x] **RF-2.3 Reportes:** filtros de fechas, período y estado; validación del rango; vista y PDF; el Administrador ve todos y el Copropietario solo sus propios registros. Los recibos ajenos también están bloqueados.
 - [x] **RF-2.4 Modificar:** valida datos, impide cambiar el número de casa, detecta ausencia de cambios, sincroniza correo y regenera contraseña temporal al cambiar cédula, invalidando las sesiones anteriores.
@@ -80,7 +80,7 @@ Estas validaciones externas no representan funciones faltantes del prototipo; so
 Instancia actual: `http://localhost:3200`
 
 - Administrador: `admin` / `Admin123!`
-- Copropietario con pago aprobado: `casa1` / `Casa1Demo!`
-- Copropietario con pago pendiente para probar Ver/Aprobar/Rechazar: `casa2` / `Casa2Demo!`
+- Copropietario técnico sin movimientos: `casa1` / `Casa1Demo!`
+- Copropietario técnico sin movimientos: `casa2` / `Casa2Demo!`
 
-La instancia usa MongoDB en memoria y se reinicia limpia cuando se detiene el proceso. Para iniciarla nuevamente use `npm run demo`; por defecto intenta el puerto 3000.
+La instancia contiene exactamente un Administrador y dos copropietarios técnicos editables. No incluye pagos, deudas ni importaciones precargadas. Usa MongoDB en memoria y se reinicia limpia cuando se detiene el proceso. Para iniciarla nuevamente use `npm run demo`; por defecto intenta el puerto 3000.

@@ -3,6 +3,7 @@ const path = require('path');
 const app = express();
 const db = require('./config/database');
 const authService = require('./src/core/business/services/AuthService');
+const copropietarioService = require('./src/core/business/services/CopropietarioService');
 const usuarioRepository = require('./src/data/repositories/usuarioRepository');
 
 // Middlewares obligatorios
@@ -52,6 +53,32 @@ const inicializarDatos = async () => {
             // Crear administrador predeterminado formal
             await authService.registrarUsuario('admin', 'admin@aligest.com', 'Admin123!', 'ADMINISTRADOR');
             console.log("✔ CONFIGURACIÓN INICIAL: Administrador 'admin' / 'Admin123!' creado con éxito.");
+        }
+
+        // El modo presentación es deliberadamente pequeño y limpio: dos cuentas
+        // técnicas editables, sin pagos, deudas ni clientes ficticios importados.
+        if (process.env.SEED_PRESENTATION === 'true') {
+            const cuentasPresentacion = [
+                {
+                    cedula: '0210000014', nombre: 'Copropietario Casa 1', casa: 'Casa 1',
+                    telefono: '0980000001', email: 'casa1@aligest.local', saldo: 0,
+                    password: 'Casa1Demo!'
+                },
+                {
+                    cedula: '0310000021', nombre: 'Copropietario Casa 2', casa: 'Casa 2',
+                    telefono: '0980000002', email: 'casa2@aligest.local', saldo: 0,
+                    password: 'Casa2Demo!'
+                }
+            ];
+            const existentes = await copropietarioService.obtenerTodos();
+
+            for (const cuenta of cuentasPresentacion) {
+                if (existentes.some(copro => copro.casa === cuenta.casa)) continue;
+                const creada = await copropietarioService.crearCopropietario(cuenta);
+                const usuario = await usuarioRepository.findByUsername(creada.username);
+                await authService.cambiarPassword(usuario.id, creada.passwordTemporal, cuenta.password);
+            }
+            console.log("✔ PRESENTACIÓN LIMPIA: creadas únicamente las cuentas casa1 y casa2, sin movimientos financieros.");
         }
     } catch (error) {
         console.error("✘ ERROR al conectar e inicializar base de datos:", error.message);
