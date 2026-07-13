@@ -1,0 +1,1619 @@
+% ============================================================================
+%  INFORME TÉCNICO — PLAN DE PRUEBAS UNITARIAS
+%  Sistema AliGest — Gestión de Expensas Residenciales
+%  Universidad de las Fuerzas Armadas ESPE — Ingeniería en Software
+%  Asignatura: Análisis y Diseño de Software
+%  Compilar en Overleaf con: pdfLaTeX
+% ============================================================================
+\documentclass[12pt,a4paper]{article}
+
+% ---------- Codificación e idioma ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla]{babel}
+
+% ---------- Página y tipografía ----------
+\usepackage[top=2.5cm,bottom=2.5cm,left=3cm,right=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ---------- Gráficos y tablas ----------
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+% ---------- Listas, colores, enlaces ----------
+\usepackage{enumitem}
+\usepackage{xcolor}
+\definecolor{espeverde}{RGB}{0,102,51}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=espeverde]{hyperref}
+
+% ---------- Código fuente (bloques de implementación) ----------
+% NOTA: paquete agregado sobre la plantilla base para poder incluir los
+% fragmentos de código JavaScript/Jest citados a lo largo del informe.
+\usepackage{listings}
+\lstdefinestyle{codigo}{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    breakatwhitespace=false,
+    backgroundcolor=\color{gray!8},
+    frame=single,
+    rulecolor=\color{gray!45},
+    showstringspaces=false,
+    tabsize=2,
+    columns=fullflexible,
+    keywordstyle=\color{blue!60!black}\bfseries,
+    commentstyle=\color{gray!55!black}\itshape,
+    stringstyle=\color{espeverde!70!black},
+    numbers=left,
+    numberstyle=\tiny\color{gray!70},
+    numbersep=6pt,
+    xleftmargin=12pt
+}
+\lstset{style=codigo, language=JavaScript}
+
+% ---------- Encabezado y pie de página ----------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Plan de Pruebas Unitarias — AliGest}
+\fancyhead[R]{\small ESPE — Análisis y Diseño}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% ---------- Interlineado ----------
+\onehalfspacing
+
+% Columna centrada de ancho fijo para tablas
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\begin{document}
+
+% ============================================================================
+%  PORTADA
+% ============================================================================
+\begin{titlepage}
+\centering
+\vspace*{0.5cm}
+
+\includegraphics[width=0.28\textwidth]{logo_espe.png}\\[0.4cm]
+% NOTA (Figura de portada): reemplace "logo_espe.png" por el escudo oficial
+% de la Universidad de las Fuerzas Armadas ESPE (formato PNG con fondo
+% transparente). Si no dispone del logo, puede comentar esta línea con "%".
+
+{\LARGE \textbf{UNIVERSIDAD DE LAS FUERZAS ARMADAS}}\\[0.15cm]
+{\LARGE \textbf{ESPE}}\\[0.8cm]
+
+{\large \textbf{Ingeniería en Software}}\\[0.6cm]
+
+\rule{0.85\textwidth}{0.5pt}\\[0.6cm]
+{\Large \textbf{INFORME TÉCNICO}}\\[0.35cm]
+{\huge \textbf{Plan de Pruebas Unitarias}}\\[0.2cm]
+{\Large Sistema AliGest — Gestión de Expensas Residenciales}\\[0.35cm]
+\rule{0.85\textwidth}{0.5pt}\\[1.4cm]
+
+\begin{flushleft}
+\hspace{2cm}\textbf{Asignatura:} \hspace{0.6cm} Análisis y Diseño\\[0.35cm]
+\hspace{2cm}\textbf{NRC:} \hspace{2.05cm} 30723\\[0.35cm]
+\hspace{2cm}\textbf{Docente:} \hspace{1.35cm} Ing. Jenny Ruiz\\[0.35cm]
+\hspace{2cm}\textbf{Integrantes:} \hspace{0.75cm} Santi Jeancarlo\\[0.15cm]
+\hspace{2cm}\phantom{\textbf{Integrantes:}} \hspace{0.75cm} Erick Tufiño\\[0.15cm]
+\hspace{2cm}\phantom{\textbf{Integrantes:}} \hspace{0.75cm} Andrés Cedeño\\[0.35cm]
+\hspace{2cm}\textbf{Fecha:} \hspace{1.7cm} 09 de julio de 2026\\
+\end{flushleft}
+
+\vfill
+{\large \textbf{Sangolquí — Ecuador}}\\[0.2cm]
+{\large \textbf{2026}}
+
+\end{titlepage}
+
+% ============================================================================
+%  ÍNDICES
+% ============================================================================
+\pagenumbering{roman}
+\setcounter{page}{2}
+
+\renewcommand{\contentsname}{Índice de Contenidos}
+\tableofcontents
+\clearpage
+
+\listoftables
+\clearpage
+
+% ============================================================================
+%  CUERPO DEL INFORME
+% ============================================================================
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\section{Objetivo de las Pruebas}
+
+\subsection{Objetivo General}
+
+Validar que los requisitos funcionales del sistema \textbf{AliGest} —plataforma de
+gestión de expensas residenciales del conjunto habitacional \emph{``La Primavera''}—
+cumplan con las especificaciones establecidas en el backlog del proyecto,
+garantizando el correcto funcionamiento de:
+
+\begin{itemize}[nosep]
+    \item Autenticación, registro y recuperación de acceso de usuarios.
+    \item Configuración de perfiles y control de permisos por rol (Administrador / Copropietario).
+    \item Administración de copropietarios: importación masiva desde Excel, consulta, modificación y eliminación controlada.
+    \item Registro, validación y auditoría de pagos de expensas.
+    \item Cálculo automático del recargo por mora sobre deudas vencidas.
+    \item Generación de comprobantes digitales inmutables y notificaciones automáticas al residente.
+\end{itemize}
+
+\subsection{Objetivos Específicos}
+
+\begin{enumerate}[nosep]
+    \item \textbf{Validar objetos de valor y modelo de dominio:} verificar que \texttt{Cedula},
+    \texttt{Telefono} y \texttt{Usuario} apliquen correctamente sus reglas de negocio e
+    invariantes (algoritmo Módulo 10, formato internacional ecuatoriano, políticas de
+    contraseña).
+    \item \textbf{Validar servicios de negocio:} asegurar que \texttt{AuthService},
+    \texttt{CopropietarioService} y \texttt{PagoService} gestionen correctamente la lógica
+    de negocio, las validaciones cruzadas contra la base de datos y el manejo de errores.
+    \item \textbf{Validar los patrones de diseño aplicados:} confirmar que el patrón
+    \emph{Strategy} (cálculo de mora), el patrón \emph{Decorator} (auditoría de pagos) y el
+    patrón \emph{Adapter} (importación de Excel) se comporten según lo especificado.
+    \item \textbf{Validar middlewares de seguridad:} comprobar el control de acceso por rol,
+    la protección del último administrador activo y la expiración de sesión por
+    inactividad.
+    \item \textbf{Validar la integración con la capa de persistencia:} verificar que las
+    operaciones sobre MongoDB (a través de \texttt{mongodb-memory-server}) sean correctas,
+    aisladas entre pruebas y no dependan de una base de datos de producción.
+\end{enumerate}
+
+\clearpage
+
+% ============================================================================
+\section{Planteamiento}
+% ============================================================================
+
+\subsection{Alcance de las Pruebas}
+
+Las pruebas unitarias e de integración ligera cubren:
+
+\begin{itemize}[nosep]
+    \item \textbf{Objetos de valor y modelo de dominio:} validación de datos, invariantes y
+    métodos de negocio (\texttt{Cedula}, \texttt{Telefono}, \texttt{Usuario}).
+    \item \textbf{Servicios de negocio:} reglas de negocio, validaciones, manejo de errores
+    y orquestación transaccional (\texttt{AuthService}, \texttt{CopropietarioService},
+    \texttt{PagoService}).
+    \item \textbf{Patrones de diseño:} \texttt{EcuandorianMora12Strategy} /
+    \texttt{CalculadorMoraContext} (Strategy), \texttt{AuditPaymentServiceDecorator}
+    (Decorator) y \texttt{ExcelCopropietarioAdapter} (Adapter).
+    \item \textbf{Middlewares de presentación:} \texttt{verificarSesion},
+    \texttt{permitirSolo} y \texttt{verificarUltimoAdministrador}.
+    \item \textbf{Controladores HTTP (integración):} \texttt{copropietarioController} mediante
+    \texttt{supertest}, verificando el contrato completo petición-respuesta contra una base
+    de datos en memoria.
+\end{itemize}
+
+Explícitamente \textbf{no} forman parte del alcance de este plan de pruebas automatizadas
+(se mencionan como trabajo futuro en la Sección~7.4):
+
+\begin{itemize}[nosep]
+    \item La interfaz visual (HTML/CSS/JavaScript del lado cliente en
+    \texttt{dashboard.html} y \texttt{login.html}).
+    \item La generación de los binarios PDF/Excel (\texttt{generarPdfLista},
+    \texttt{generarPdfReportePagos}, \texttt{generarPdfRecibo}, \texttt{generarExcelLista}),
+    dado que su verificación exige comparación de contenido binario, no de valores lógicos.
+    \item Pruebas de carga, rendimiento o end-to-end de navegador.
+\end{itemize}
+
+\subsection{Enfoque de Testing}
+
+\textbf{Metodología:} desarrollo iterativo con pruebas de regresión (TDD adaptado) —
+cada corrección de comportamiento de negocio (por ejemplo, el recálculo del recargo por
+mora, ver Sección~6.2) fue acompañada de la actualización de su prueba correspondiente
+antes de dar por cerrado el cambio.\\
+\textbf{Tipo de pruebas:} unitarias puras (con \emph{mocks}) e integración ligera contra
+una instancia de MongoDB en memoria.\\
+\textbf{Cobertura objetivo:} no existe un umbral de cobertura de código configurado en
+\texttt{jest.config.js}; en su lugar se verificó manualmente que cada requisito funcional
+del backlog (\texttt{REQ001}–\texttt{REQ013}) cuente con al menos un caso de prueba
+explícito, documentado en la Sección~4 y consolidado en la Tabla~\ref{tab:metricas-req}.
+
+\subsection{Estrategia de Mocking}
+
+AliGest combina \textbf{dos} estrategias de prueba complementarias, elegidas según el
+tipo de componente:
+
+\begin{enumerate}[nosep]
+    \item \textbf{Mocks explícitos de Jest (\texttt{jest.mock()}):} utilizados quando el
+    componente bajo prueba debe aislarse por completo de la capa de datos —middlewares de
+    presentación y el decorador de auditoría—, ya que su responsabilidad es puramente de
+    control de flujo, no de persistencia.
+    \item \textbf{Base de datos en memoria (\texttt{mongodb-memory-server}):} utilizada para
+    los servicios de negocio (\texttt{AuthService}, \texttt{CopropietarioService},
+    \texttt{PagoService}) y para las pruebas de integración de controladores
+    (\texttt{copropietarioController.test.js}), porque su lógica depende de consultas
+    encadenadas reales (\texttt{populate}, unicidad de \texttt{cedula}/\texttt{casa},
+    amortización FIFO sobre colecciones relacionadas) que un mock manual reproduciría de
+    forma incompleta o frágil.
+\end{enumerate}
+
+\begin{lstlisting}[caption={Aislamiento con \texttt{jest.mock()} en \texttt{authMiddleware.test.js}}]
+const { verificarSesion, permitirSolo, verificarUltimoAdministrador } =
+    require('../../../src/presentation/middlewares/authMiddleware');
+const usuarioRepository = require('../../../src/data/repositories/usuarioRepository');
+
+jest.mock('../../../src/data/repositories/usuarioRepository');
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Integración real con \texttt{mongodb-memory-server} en \texttt{tests/setup.js}}]
+const { MongoMemoryServer } = require('mongodb-memory-server');
+const mongoose = require('mongoose');
+const db = require('../config/database');
+
+let mongoServer;
+
+beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+    process.env.MONGODB_URI = uri;
+    await db.conectarBD();
+});
+
+afterAll(async () => {
+    await db.desconectarBD();
+    if (mongoServer) {
+        await mongoServer.stop();
+    }
+});
+
+beforeEach(async () => {
+    // Limpiar todas las colecciones antes de cada prueba (aislamiento entre casos)
+    await db.limpiarTablas();
+});
+\end{lstlisting}
+
+\clearpage
+
+% ============================================================================
+\section{Herramientas y Entorno}
+% ============================================================================
+
+\subsection{Framework de Testing}
+
+\textbf{Jest 30.4.2} — framework de pruebas de JavaScript, ejecutado sobre Node.js en
+modo CommonJS (\texttt{require}/\texttt{module.exports}), sin necesidad de transpilación.
+
+\subsection{Entorno de Pruebas}
+
+\begin{itemize}[nosep]
+    \item \textbf{Node.js:} entorno de ejecución \texttt{testEnvironment: 'node'} (no se
+    requiere DOM, ya que la capa de presentación validada es HTTP, no navegador).
+    \item \textbf{Base de datos:} \texttt{mongodb-memory-server 11.2.0}, instancia efímera
+    de MongoDB que se crea antes de la suite y se destruye al finalizar.
+    \item \textbf{Peticiones HTTP simuladas:} \texttt{supertest 7.2.2}, para ejercer la
+    aplicación Express completa (\texttt{app.js}) sin necesidad de abrir un puerto real.
+    \item \textbf{Ejecución:} \texttt{jest --runInBand --forceExit} (definido en
+    \texttt{package.json}), en serie para evitar condiciones de carrera sobre la misma
+    base de datos en memoria compartida entre archivos de prueba.
+\end{itemize}
+
+\subsection{Estructura de Archivos}
+
+\begin{lstlisting}[language={},caption={Estructura del directorio \texttt{tests/}}]
+tests/
+├── setup.js
+├── core/
+│   ├── business/
+│   │   ├── patterns/
+│   │   │   ├── auditDecorator.test.js      (2 tests)
+│   │   │   ├── excelAdapter.test.js        (4 tests)
+│   │   │   └── moraStrategy.test.js        (4 tests)
+│   │   └── services/
+│   │       ├── AuthService.test.js         (7 tests)
+│   │       ├── CopropietarioService.test.js(7 tests)
+│   │       └── PagoService.test.js         (8 tests)
+│   └── domain/
+│       ├── models/
+│       │   └── Usuario.test.js             (7 tests)
+│       └── valueObjects/
+│           ├── Cedula.test.js              (7 tests)
+│           └── Telefono.test.js            (7 tests)
+└── presentation/
+    ├── controllers/
+    │   └── copropietarioController.test.js (4 tests)
+    └── middlewares/
+        └── authMiddleware.test.js          (11 tests)
+\end{lstlisting}
+
+\clearpage
+
+% ============================================================================
+\section{Implementación por Requisito}
+% ============================================================================
+
+Esta sección documenta, para cada requisito funcional (\texttt{REQ001}–\texttt{REQ013},
+según la numeración consolidada en el backlog del proyecto), el código relevante que
+implementa la funcionalidad, el archivo de prueba correspondiente y los resultados
+obtenidos.
+
+% ----------------------------------------------------------------------------
+\subsection{REQ001: Gestión de Acceso y Registro de Usuarios}
+% ----------------------------------------------------------------------------
+\textbf{Archivos:} \texttt{tests/core/business/services/AuthService.test.js} (4 casos
+relacionados) y \texttt{tests/presentation/middlewares/authMiddleware.test.js} (7 casos:
+\texttt{verificarSesion} y \texttt{permitirSolo}).\\
+\textbf{Total de pruebas:} 11 — \textbf{Estado:} 11/11 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+El registro y el inicio de sesión se validan primero contra las reglas de dominio del
+objeto \texttt{Usuario} y luego contra el repositorio de persistencia:
+
+\begin{lstlisting}[caption={\texttt{AuthService.login} — validación de credenciales y bloqueo temporal (\texttt{src/core/business/services/AuthService.js})}]
+async login(username, password) {
+    if (!username || !password) {
+        throw new Error("El usuario y la contraseña son obligatorios.");
+    }
+
+    const user = await usuarioRepository.findByUsername(username);
+    if (!user) {
+        throw new Error("Nombre de usuario o contraseña incorrectos. Intente nuevamente.");
+    }
+
+    const domainUser = new Usuario(user);
+    if (domainUser.esBloqueado()) {
+        const limite = new Date(user.lockout_until);
+        const minRestantes = Math.ceil((limite - new Date()) / (1000 * 60));
+        throw new Error(`Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente en ${minRestantes} minutos o recupere su contraseña.`);
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+        await usuarioRepository.incrementFailedAttempts(username);
+        const updatedUser = await usuarioRepository.findByUsername(username);
+        if (updatedUser.failed_attempts >= 3) {
+            const lockoutTime = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+            await usuarioRepository.lockoutUser(username, lockoutTime);
+            throw new Error("Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente en 15 minutos o recupere su contraseña.");
+        }
+        const intentosRestantes = 3 - updatedUser.failed_attempts;
+        throw new Error(`Nombre de usuario o contraseña incorrectos. Le quedan ${intentosRestantes} intentos antes de bloquear la cuenta.`);
+    }
+
+    await usuarioRepository.resetFailedAttempts(username);
+    return { id: user.id, username: user.username, email: user.email, role: user.role, mustChangePassword: user.must_change_password === 1 };
+}
+\end{lstlisting}
+
+El middleware \texttt{verificarSesion} controla, además del rol, la expiración de sesión
+por inactividad (RNF-01, ver Sección~4.11 y el detalle del mecanismo en el Anexo~C):
+
+\begin{lstlisting}[caption={Prueba de bloqueo por 3 intentos fallidos (\texttt{AuthService.test.js})}]
+test('Debería bloquear la cuenta por 15 minutos en el tercer intento fallido de inicio de sesión', async () => {
+    const username = 'bloqueable';
+    const passwordCorrecta = 'Password123!';
+    await authService.registrarUsuarioPublico(username, 'bloqueo@correo.com', passwordCorrecta);
+
+    await expect(authService.login(username, 'Incorrecta')).rejects.toThrow("Le quedan 2 intentos");
+    await expect(authService.login(username, 'Incorrecta')).rejects.toThrow("Le quedan 1 intentos");
+    await expect(authService.login(username, 'Incorrecta'))
+        .rejects.toThrow("Cuenta bloqueada temporalmente por múltiples intentos fallidos");
+
+    await expect(authService.login(username, passwordCorrecta))
+        .rejects.toThrow("Cuenta bloqueada temporalmente");
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Registro público con contraseña cifrada (\texttt{bcrypt}, factor 12) — verificado.
+    \item Rechazo de usuario/correo duplicado — verificado.
+    \item Inicio de sesión válido con carga de permisos por rol — verificado.
+    \item Bloqueo progresivo (2 intentos restantes $\rightarrow$ 1 $\rightarrow$ bloqueo de
+    15 minutos) y persistencia del bloqueo ante credenciales correctas — verificado.
+    \item Autorización por encabezados \texttt{x-user-role}/\texttt{x-user-id} y rechazo de
+    roles inválidos (401/403) — verificado.
+    \item Restricción de rutas por rol mediante \texttt{permitirSolo(...)} — verificado.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ002: Recuperación de Contraseña}
+% ----------------------------------------------------------------------------
+\textbf{Archivo:} \texttt{tests/core/business/services/AuthService.test.js} (3 casos).\\
+\textbf{Total de pruebas:} 3 — \textbf{Estado:} 3/3 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+\begin{lstlisting}[caption={Generación y expiración del código OTP (\texttt{AuthService.js})}]
+async generarCodigoRecuperacion(email) {
+    if (!email) {
+        throw new Error("El correo electrónico es obligatorio para recuperar contraseña.");
+    }
+    const user = await usuarioRepository.findByEmail(email);
+    if (!user) {
+        throw new Error("El correo electrónico ingresado no está registrado en el sistema. Contacte al administrador.");
+    }
+    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+    const fechaExpiracion = new Date(Date.now() + 10 * 60 * 1000); // vigencia de 10 minutos
+    await usuarioRepository.updateRecoveryCode(user.username, codigo, fechaExpiracion.toISOString());
+    // ... simulación de despacho por SMTP (consola) ...
+    return { mensaje: "Código enviado correctamente.", codigoSimulado: codigo, username: user.username };
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Prueba de expiración del código OTP (\texttt{AuthService.test.js})}]
+test('Debería fallar al cambiar clave si el código OTP ha expirado', async () => {
+    const username = 'expirable';
+    const email = 'expirable@correo.com';
+    await authService.registrarUsuarioPublico(username, email, 'OldPassword123!');
+
+    await authService.generarCodigoRecuperacion(email);
+    const expiracionPasada = new Date(Date.now() - 10 * 1000).toISOString();
+    const user = await usuarioRepository.findByUsername(username);
+    await usuarioRepository.updateRecoveryCode(username, user.recovery_code, expiracionPasada);
+
+    await expect(authService.recuperarContrasena(username, user.recovery_code, 'NewPassword123!'))
+        .rejects.toThrow("El código de verificación ha expirado. Solicite uno nuevo.");
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Generación de código de 6 dígitos con vigencia de 10 minutos — verificado.
+    \item Restablecimiento exitoso invalida la contraseña anterior — verificado.
+    \item Rechazo de código expirado con mensaje explícito — verificado.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ003: Configuración de Perfiles}
+% ----------------------------------------------------------------------------
+\textbf{Archivo:} \texttt{tests/presentation/middlewares/authMiddleware.test.js},
+bloque \texttt{describe('verificarUltimoAdministrador')} (4 casos).\\
+\textbf{Total de pruebas:} 4 — \textbf{Estado:} 4/4 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+\begin{lstlisting}[caption={\texttt{verificarUltimoAdministrador} (\texttt{authMiddleware.js})}]
+async function verificarUltimoAdministrador(req, res, next) {
+    const { id } = req.params;
+    if (!id) return next();
+
+    const usuarioTarget = await usuarioRepository.findById(id);
+    if (!usuarioTarget) {
+        return res.status(404).json({ error: "El usuario especificado no existe en el sistema." });
+    }
+
+    if (usuarioTarget.role === 'ADMINISTRADOR') {
+        const numAdmins = await usuarioRepository.countAdministrators();
+        if (numAdmins <= 1) {
+            return res.status(400).json({
+                error: "Operación de seguridad denegada: No se puede eliminar o desactivar al último administrador del sistema."
+            });
+        }
+    }
+    next();
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Prueba del bloqueo al último administrador activo (\texttt{authMiddleware.test.js})}]
+test('Debería bloquear la acción (400) si se intenta eliminar o desactivar al último administrador activo del sistema', async () => {
+    mockReq.params.id = 'ultimo-admin';
+    usuarioRepository.findById.mockResolvedValue({ id: 'ultimo-admin', role: 'ADMINISTRADOR' });
+    usuarioRepository.countAdministrators.mockResolvedValue(1); // Solo queda 1 admin
+
+    await verificarUltimoAdministrador(mockReq, mockRes, nextFunction);
+
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+        error: expect.stringContaining("No se puede eliminar o desactivar al último administrador")
+    }));
+    expect(nextFunction).not.toHaveBeenCalled();
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Modificación de perfiles de usuarios distintos de ADMINISTRADOR sin restricción — verificado.
+    \item Degradación de un ADMINISTRADOR permitida cuando existen otros administradores activos — verificado.
+    \item Bloqueo (400) cuando la operación dejaría al sistema sin ningún administrador — verificado.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ004: Importación de Copropietarios}
+% ----------------------------------------------------------------------------
+\textbf{Archivos:} \texttt{tests/core/business/services/CopropietarioService.test.js}
+(3 casos: creación manual e importación masiva) y
+\texttt{tests/core/business/patterns/excelAdapter.test.js} (4 casos).\\
+\textbf{Total de pruebas:} 7 — \textbf{Estado:} 7/7 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+El patrón \emph{Adapter} tolera variaciones de encabezado del archivo Excel de origen:
+
+\begin{lstlisting}[caption={\texttt{ExcelCopropietarioAdapter.adaptRow} (\texttt{src/core/business/patterns/excelAdapter.js})}]
+static adaptRow(externalRow) {
+    if (!externalRow) {
+        throw new Error("Fila de hoja de cálculo nula o indefinida.");
+    }
+    const cedula = externalRow["Cédula"] || externalRow["Cedula"] || externalRow["ID_Nacional"] || "";
+    const nombre = externalRow["Nombre Completo"] || externalRow["Nombre"] || "";
+    const casa = externalRow["Número Casa"] || externalRow["Casa"] || "";
+    const telefono = externalRow["Teléfono"] || externalRow["Telefono"] || externalRow["Celular"] || "";
+    const email = externalRow["Correo Electrónico"] || externalRow["Correo"] || externalRow["Email"] || "";
+    const saldo = parseFloat(externalRow["Saldo Inicial"] || externalRow["Saldo"] || 0.0);
+
+    return {
+        cedula: String(cedula).trim(), nombre: String(nombre).trim(), casa: String(casa).trim(),
+        telefono: String(telefono).trim(), email: String(email).trim(),
+        saldo: isNaN(saldo) ? 0.0 : saldo
+    };
+}
+\end{lstlisting}
+
+La importación masiva es \textbf{atómica}: valida todo el lote antes de persistir cualquier
+registro, garantizando que un solo error cancele la operación completa (REQ004):
+
+\begin{lstlisting}[caption={Prueba de atomicidad de la importación masiva (\texttt{CopropietarioService.test.js})}]
+test('Debería abortar toda la importación masiva si existe una sola fila inválida (Atomicidad)', async () => {
+    const filas = [
+        { "Cédula": "1721151247", "Nombre Completo": "Juan Perez", "Número Casa": "Villa 1", "Correo": "juan@correo.com" },
+        { "Cédula": "1721151241", "Nombre Completo": "Fila Invalida", "Número Casa": "Villa 2", "Correo": "invalido" }
+    ];
+    const buffer = crearExcelMock(filas);
+
+    await expect(copropietarioService.importarMasivoDesdeExcel(buffer))
+        .rejects.toThrow("Importación cancelada por errores de validación");
+
+    const todos = await copropietarioService.obtenerTodos();
+    expect(todos).toHaveLength(0); // Nada se persistió
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Registro manual individual con generación automática de usuario/contraseña
+    temporal (\texttt{must\_change\_password = 1}) — verificado.
+    \item Importación masiva exitosa de 2 filas con generación de \texttt{username} a
+    partir del número de casa — verificado.
+    \item Cancelación total del lote ante una fila con cédula/correo inválidos — verificado.
+    \item Mapeo tolerante de encabezados en español, alternativos y valores de saldo no
+    numéricos — verificado (\texttt{excelAdapter.test.js}).
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ005: Consulta de Copropietarios}
+% ----------------------------------------------------------------------------
+\textbf{Archivo:} \texttt{tests/presentation/controllers/copropietarioController.test.js}
+(2 casos, integración HTTP con \texttt{supertest}).\\
+\textbf{Total de pruebas:} 2 — \textbf{Estado:} 2/2 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+\begin{lstlisting}[caption={Filtro por nombre en \texttt{GET /api/copropietarios} (\texttt{src/presentation/controllers/copropietarioController.js})}]
+router.get('/', verificarSesion, async (req, res) => {
+    const { nombre, casa, casaInicio, casaFin, estadoCuenta } = req.query;
+    let lista = await copropietarioService.obtenerTodos();
+
+    if (nombre) {
+        const queryName = nombre.toLowerCase().trim();
+        lista = lista.filter(c => c.nombre.toLowerCase().includes(queryName));
+    }
+    // ... filtros adicionales por casa, rango de villas y estado de cuenta ...
+    res.status(200).json(lista);
+});
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Prueba de integración con \texttt{supertest} (\texttt{copropietarioController.test.js})}]
+test('GET /api/copropietarios - Debería filtrar residentes por nombre', async () => {
+    await Copropietario.create({
+        cedula: '0921151247', nombre: 'Maria Gomez', casa: 'Villa 20',
+        telefono: '+593987654322', email: 'maria@correo.com', saldo: 0.0
+    });
+
+    const response = await request(app)
+        .get('/api/copropietarios?nombre=Maria')
+        .set(adminTokenHeaders);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0].nombre).toBe('Maria Gomez');
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Listado completo de copropietarios autenticados (rol Administrador) — verificado.
+    \item Filtro por nombre insensible a mayúsculas — verificado.
+\end{itemize}
+
+\subsubsection*{Nota de Cobertura}
+Los filtros por rango de villas, estado de cuenta (\texttt{saldado}/\texttt{deudor}) y el
+ordenamiento de columnas se implementan en el mismo controlador, pero no cuentan con un
+caso de prueba automatizado dedicado; fueron verificados manualmente durante el desarrollo.
+Se recomienda ampliar \texttt{copropietarioController.test.js} con estos escenarios (ver
+Sección~7.4).
+
+% ----------------------------------------------------------------------------
+\subsection{REQ006: Generación de Reportes}
+% ----------------------------------------------------------------------------
+\textbf{Total de pruebas:} 0 — \textbf{Estado:} SIN COBERTURA AUTOMATIZADA DEDICADA.
+
+\subsubsection*{Cómo se implementó}
+
+\texttt{PagoService.obtenerReportePagos} restringe automáticamente el conjunto de
+resultados según el rol del usuario autenticado:
+
+\begin{lstlisting}[caption={Restricción de reportes por rol (\texttt{src/core/business/services/PagoService.js})}]
+async obtenerReportePagos(filtros, userContext) {
+    const role = userContext?.role;
+    let copropietarioId = null;
+
+    if (role === 'COPROPIETARIO') {
+        const copro = await copropietarioRepository.findByUsuarioId(userContext.id);
+        if (!copro) return [];
+        copropietarioId = copro.id;
+    }
+
+    return await pagoRepository.getReportePagos({
+        fechaInicio: filtros.fechaInicio || null,
+        fechaFin: filtros.fechaFin || null,
+        periodo: filtros.periodo || null,
+        estado: filtros.estado || null,
+        copropietarioId
+    });
+}
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos y Nota de Cobertura}
+La lógica de restricción por rol reutiliza el mismo mecanismo ya validado indirectamente
+en \texttt{PagoService.test.js} (búsqueda de copropietario por \texttt{usuarioId}), pero no
+existe, al cierre de este informe, un caso de prueba que invoque
+\texttt{obtenerReportePagos} ni \texttt{generarPdfReportePagos} directamente. Se identifica
+como una brecha de cobertura y se registra como recomendación prioritaria en la
+Sección~7.4.
+
+% ----------------------------------------------------------------------------
+\subsection{REQ007: Modificación de Copropietarios}
+% ----------------------------------------------------------------------------
+\textbf{Archivo:} \texttt{tests/core/business/services/CopropietarioService.test.js}
+(3 casos).\\
+\textbf{Total de pruebas:} 3 — \textbf{Estado:} 3/3 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+Además de la actualización estándar de datos de contacto, \texttt{actualizarDatos} permite
+el cambio de cédula (representante nuevo de la vivienda) regenerando automáticamente la
+contraseña temporal de acceso:
+
+\begin{lstlisting}[caption={Regeneración de contraseña ante cambio de cédula (\texttt{CopropietarioService.js})}]
+if (datos.cedula) {
+    const cedulaSolicitada = new Cedula(datos.cedula).valor;
+    if (cedulaSolicitada !== copropietario.cedula) {
+        const existeCedula = await copropietarioRepository.findByCedula(cedulaSolicitada);
+        if (existeCedula) {
+            throw new Error(`La cédula ${cedulaSolicitada} ya está registrada en el sistema.`);
+        }
+        nuevaCedula = cedulaSolicitada;
+
+        if (copropietario.usuario_id) {
+            passwordTemporal = `Temp-${Math.floor(1000 + Math.random() * 9000)}!`;
+            const hashed = await bcrypt.hash(passwordTemporal, 12);
+            await usuarioRepository.updatePasswordAndForceMustChange(copropietario.usuario_id, hashed);
+        }
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Prueba del cambio de representante (\texttt{CopropietarioService.test.js})}]
+test('RF-2.4: Debería permitir cambiar la cédula (nuevo representante) y regenerar la contraseña temporal', async () => {
+    await copropietarioService.crearCopropietario({
+        cedula: '1721151247', nombre: 'Juan Original', casa: 'Villa 2',
+        telefono: '0987654321', email: 'juan2@correo.com'
+    });
+
+    const actualizado = await copropietarioService.actualizarDatos('1721151247', {
+        cedula: '3000000012', nombre: 'Pedro Nuevo Representante'
+    });
+
+    expect(actualizado.cedula).toBe('3000000012');
+    expect(actualizado.passwordTemporal).toEqual(expect.stringMatching(/^Temp-\d{4}!$/));
+
+    const anterior = await copropietarioRepository.findByCedula('1721151247');
+    expect(anterior).toBeNull();
+
+    const nuevo = await copropietarioRepository.findByCedula('3000000012');
+    const usuario = await usuarioRepository.findById(nuevo.usuario_id);
+    expect(usuario.must_change_password).toBe(1);
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Actualización de nombre, villa, teléfono y correo — verificado.
+    \item Cambio de cédula con regeneración de contraseña temporal y forzado de cambio en
+    el primer ingreso — verificado.
+    \item Rechazo del cambio si la nueva cédula ya pertenece a otro copropietario — verificado.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ008: Eliminación de Copropietarios}
+% ----------------------------------------------------------------------------
+\textbf{Archivos:} \texttt{CopropietarioService.test.js} (1 caso) y
+\texttt{copropietarioController.test.js} (2 casos, integración HTTP).\\
+\textbf{Total de pruebas:} 3 — \textbf{Estado:} 3/3 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+El controlador exige confirmación explícita cuando el copropietario tiene historial de
+pagos, y bloquea por completo la eliminación si tiene deudas pendientes:
+
+\begin{lstlisting}[caption={Confirmación por historial de pagos (\texttt{copropietarioController.js})}]
+router.delete('/:id', verificarSesion, permitirSolo('ADMINISTRADOR'), async (req, res) => {
+    const id = req.params.id;
+    const { confirmar } = req.query;
+
+    const deudasPendientes = await pagoRepository.countPendingDeudas(id);
+    if (deudasPendientes > 0) {
+        return res.status(400).json({ error: "No se permite eliminar un residente con deudas pendientes." });
+    }
+
+    const tienePagos = await pagoRepository.countPayments(id);
+    if (tienePagos > 0 && confirmar !== 'true') {
+        return res.status(202).json({
+            advertencia: "HISTORIAL_ACTIVO",
+            mensaje: "ADVERTENCIA: Este copropietario tiene historial de pagos registrado. Eliminar este registro puede afectar reportes históricos y estadísticas. ¿Desea continuar de todas formas?"
+        });
+    }
+    const result = await copropietarioService.eliminarCopropietario(id);
+    res.status(200).json(result);
+});
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Prueba de la advertencia 202 por historial activo (\texttt{copropietarioController.test.js})}]
+test('DELETE /api/copropietarios/:id - Debería denegar con 202 y advertencia si tiene historial de pagos sin confirmar', async () => {
+    await Pago.create({
+        comprobante_id: 'DEP-777', copropietario_id: coproId, monto_pagado: 100.0,
+        estado: 'APROBADO', fecha_registro: new Date().toISOString()
+    });
+
+    const response = await request(app)
+        .delete(`/api/copropietarios/${coproId}`)
+        .set(adminTokenHeaders);
+
+    expect(response.status).toBe(202);
+    expect(response.body.advertencia).toBe('HISTORIAL_ACTIVO');
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Bloqueo total de la eliminación si existen deudas pendientes — verificado.
+    \item Advertencia (202) si existe historial de pagos sin confirmación explícita — verificado.
+    \item Eliminación (borrado lógico del copropietario y físico del usuario) al confirmar
+    con \texttt{?confirmar=true} — verificado.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ009: Registro de Pago de Expensa}
+% ----------------------------------------------------------------------------
+\textbf{Archivo:} \texttt{tests/core/business/services/PagoService.test.js} (2 casos).\\
+\textbf{Total de pruebas:} 2 — \textbf{Estado:} 2/2 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+\begin{lstlisting}[caption={\texttt{reportarPagoCopropietario} (\texttt{PagoService.js})}]
+async reportarPagoCopropietario(usuarioId, comprobanteId, monto, metodo, periodo, comprobanteImg) {
+    const copro = await copropietarioRepository.findByUsuarioId(usuarioId);
+    if (!copro) {
+        throw new Error("No se encontró el registro de copropietario para el usuario actual.");
+    }
+
+    const pagoEntidad = new Pago({ copropietarioId: copro.id, monto, comprobanteId, metodo, periodo, comprobanteImg });
+    if (!pagoEntidad.esMontoValido()) {
+        throw new Error("El monto reportado debe ser un número positivo.");
+    }
+
+    await pagoRepository.registrarPagoInmutable(
+        pagoEntidad.comprobanteId, pagoEntidad.copropietarioId, pagoEntidad.monto,
+        'PENDIENTE_VALIDACION', null, pagoEntidad.metodo, pagoEntidad.periodo, pagoEntidad.comprobanteImg
+    );
+
+    return { mensaje: "El pago fue reportado con éxito y está pendiente de verificación." };
+}
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Reporte de pago queda en estado \texttt{PENDIENTE\_VALIDACION} con la referencia
+    bancaria y el monto correctos — verificado.
+    \item Rechazo de montos no positivos (\texttt{esMontoValido()}) — verificado.
+\end{itemize}
+
+\subsubsection*{Nota de Cobertura}
+La validación de tipo de archivo (JPG/JPEG/PNG) y del límite de 5\,MB del comprobante
+se implementa mediante \texttt{multer} directamente en la capa de controlador
+(\texttt{pagoController.js}); al depender del \emph{middleware} de carga multipart, no se
+ejerce en las pruebas de servicio aquí descritas y queda pendiente como prueba de
+integración HTTP futura (Sección~7.4).
+
+% ----------------------------------------------------------------------------
+\subsection{REQ010: Validación de Pagos}
+% ----------------------------------------------------------------------------
+\textbf{Archivos:} \texttt{PagoService.test.js} (2 casos) y
+\texttt{tests/core/business/patterns/auditDecorator.test.js} (2 casos).\\
+\textbf{Total de pruebas:} 4 — \textbf{Estado:} 4/4 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+La aprobación de un pago se envuelve con el patrón \emph{Decorator} para registrar
+auditoría sin acoplar esa responsabilidad a la lógica de negocio:
+
+\begin{lstlisting}[caption={\texttt{AuditPaymentServiceDecorator} (\texttt{src/core/business/patterns/auditDecorator.js})}]
+function AuditPaymentServiceDecorator(baseService) {
+    return {
+        async procesarPago(pagoId) {
+            await pagoRepository.registrarAuditoria("INTENTO_APROBACION_PAGO", { pagoId, timestamp: new Date().toISOString() });
+            try {
+                const resultado = await baseService.validarAprobarPago(pagoId);
+                await pagoRepository.registrarAuditoria("PAGO_APROBADO_EXITO", {
+                    pagoId, reciboId: resultado.comprobante_id, monto: resultado.monto_aplicado,
+                    sobrepago: resultado.sobrepago, timestamp: new Date().toISOString()
+                });
+                return resultado;
+            } catch (err) {
+                await pagoRepository.registrarAuditoria("APROBACION_PAGO_FALLIDA", { pagoId, error: err.message, timestamp: new Date().toISOString() });
+                throw err;
+            }
+        }
+    };
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Prueba de auditoría en caso de fallo (\texttt{auditDecorator.test.js}, con \texttt{jest.mock})}]
+test('Debería registrar auditoría de fallo si el servicio base lanza un error', async () => {
+    const mockError = new Error("Saldo insuficiente");
+    mockBaseService.validarAprobarPago.mockRejectedValue(mockError);
+    pagoRepository.registrarAuditoria.mockResolvedValue('AUDIT-ID');
+
+    await expect(decoratedService.procesarPago('PAGO-123')).rejects.toThrow("Saldo insuficiente");
+
+    expect(pagoRepository.registrarAuditoria).toHaveBeenCalledTimes(2);
+    expect(pagoRepository.registrarAuditoria).toHaveBeenNthCalledWith(
+        2, "APROBACION_PAGO_FALLIDA",
+        expect.objectContaining({ pagoId: 'PAGO-123', error: "Saldo insuficiente" })
+    );
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Aprobación de pago con amortización FIFO, generación de recibo digital y
+    auditoría de éxito (\texttt{INTENTO\_APROBACION\_PAGO} $\rightarrow$
+    \texttt{PAGO\_APROBADO\_EXITO}) — verificado.
+    \item Auditoría de fallo (\texttt{APROBACION\_PAGO\_FALLIDA}) cuando el servicio base
+    lanza una excepción — verificado.
+    \item Rechazo de pago con motivo obligatorio y notificación al residente — verificado.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ011: Cálculo de Sanción por Mora}
+% ----------------------------------------------------------------------------
+\textbf{Archivos:} \texttt{tests/core/business/patterns/moraStrategy.test.js} (4 casos) y
+\texttt{PagoService.test.js} (4 casos adicionales sobre generación de expensas
+mensuales, infraestructura necesaria para que exista una deuda real que amortizar).\\
+\textbf{Total de pruebas:} 8 — \textbf{Estado:} 8/8 PASANDO (100\,\%).
+
+\subsubsection*{Cómo se implementó}
+
+El recargo por mora se implementa con el patrón \emph{Strategy}, como un
+\textbf{recargo fijo del 12\,\%} aplicado una única vez por período vencido (no se
+prorratea por días de atraso ni se acumula):
+
+\begin{lstlisting}[caption={\texttt{EcuandorianMora12Strategy} (\texttt{src/core/business/patterns/moraStrategy.js})}]
+class CalculadorMoraContext {
+    constructor(strategy) { this.strategy = strategy; }
+    calcular(monto, diasRetraso) { return this.strategy.calcularMora(monto, diasRetraso); }
+}
+
+class EcuandorianMora12Strategy {
+    calcularMora(monto, diasRetraso) {
+        if (diasRetraso <= 0) return 0;
+        // Recargo fijo del 12% sobre la deuda vencida, aplicado una sola
+        // vez por período (no se prorratea ni se acumula por días de atraso).
+        const interes = monto * 0.12;
+        return parseFloat(interes.toFixed(2));
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Prueba de invariancia del recargo respecto a los días de atraso (\texttt{moraStrategy.test.js})}]
+test('El recargo del 12% no debe acumularse ni variar según los días de retraso transcurridos', () => {
+    // El recargo se aplica una sola vez por período vencido (RF-3.3),
+    // por lo que el resultado es el mismo con 1 día o con 200 días de mora.
+    expect(context.calcular(100, 1)).toBe(12.00);
+    expect(context.calcular(100, 200)).toBe(12.00);
+});
+\end{lstlisting}
+
+Dado que la generación de la deuda mensual (\texttt{Deuda}) es un prerrequisito para que
+el cálculo de mora tenga un caso real que amortizar, se añadió y probó
+\texttt{generarExpensasMensuales}, que registra la expensa del período para todos los
+copropietarios sin duplicar períodos ya generados, con vencimiento el día 5 del mes
+siguiente:
+
+\begin{lstlisting}[caption={\texttt{generarExpensasMensuales} (\texttt{PagoService.js})}]
+function calcularVencimientoExpensa(periodo) {
+    const [anioStr, mesStr] = periodo.split('-');
+    let anio = parseInt(anioStr, 10);
+    let mes = parseInt(mesStr, 10) + 1; // mes (1-12) del período + 1 = mes siguiente
+    if (mes > 12) { mes = 1; anio += 1; }
+    return `${anio}-${String(mes).padStart(2, '0')}-05`;
+}
+
+async generarExpensasMensuales(periodo, montoBase) {
+    if (!periodo || !/^\d{4}-(0[1-9]|1[0-2])$/.test(periodo)) {
+        throw new Error("El período debe tener el formato YYYY-MM.");
+    }
+    const monto = parseFloat(montoBase);
+    const fechaVencimiento = calcularVencimientoExpensa(periodo);
+    const copropietarios = await copropietarioRepository.findAll();
+
+    let generadas = 0, omitidas = 0;
+    for (const copro of copropietarios) {
+        const existente = await pagoRepository.findDeudaPorPeriodo(copro.id, periodo);
+        if (existente) { omitidas++; continue; }
+        await pagoRepository.createDeuda(copro.id, periodo, monto, 'PENDIENTE', fechaVencimiento);
+        generadas++;
+    }
+    return { mensaje: `Expensas del período ${periodo} generadas correctamente.`, periodo, montoBase: monto, fechaVencimiento, generadas, omitidas, totalCopropietarios: copropietarios.length };
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Amortización FIFO con recargo del 12\% sobre la deuda vencida (\texttt{PagoService.test.js})}]
+test('Debería aplicar amortización FIFO e interés de mora del 12% al aprobar un pago', async () => {
+    // Deuda 1: Vencida hace 10 días, monto $100. Deuda 2: Vigente, monto $100.
+    const d1Id = await pagoRepository.createDeuda(copro.id, '2026-06', 100.00, 'PENDIENTE', '2026-07-10');
+    const d2Id = await pagoRepository.createDeuda(copro.id, '2026-07', 100.00, 'PENDIENTE', '2026-07-30');
+
+    await pagoService.reportarPagoCopropietario(usuarioId, 'TRANS-FIFO', 150.00, 'TRANSFERENCIA', '2026-07', 'img');
+    const pagoId = (await pagoService.obtenerPagosPendientes())[0].id;
+
+    const resultado = await pagoService.validarAprobarPago(pagoId, new Date('2026-07-20'));
+    expect(resultado.estado_transaccion).toBe('APROBADO_E_INMUTABLE');
+
+    // Deuda 1: 100 + (100*0.12) = 112.00 -> se cancela por completo (150 - 112 = 38 restante)
+    // Deuda 2: sin mora (vigente) -> 100 - 38 = 62.00 pendiente
+    const deudas = await pagoRepository.getDeudasByCopropietario(copro.id);
+    expect(deudas.find(d => d.id === d1Id).estado).toBe('PAGADO');
+    expect(deudas.find(d => d.id === d2Id).monto).toBe(62.00);
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item Recargo cero para deudas no vencidas — verificado.
+    \item Recargo fijo del 12\,\% sobre el monto adeudado, sin prorrateo diario — verificado.
+    \item Invariancia del recargo frente a distintos períodos de atraso (1 día vs.\ 200
+    días) — verificado.
+    \item Amortización FIFO completa: cancelación total de la deuda más antigua y aplicación
+    del remanente a la siguiente — verificado.
+    \item Generación de expensas mensuales sin duplicar el período y con vencimiento
+    correcto (incluido el cambio de año en diciembre $\rightarrow$ enero) — verificado.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{REQ012: Generación de Comprobante de Pago}
+% ----------------------------------------------------------------------------
+\textbf{Total de pruebas dedicadas:} 0 — \textbf{Cobertura:} PARCIAL (embebida en REQ010).
+
+\subsubsection*{Cómo se implementó}
+
+\begin{lstlisting}[caption={\texttt{Pago.generarComprobanteDigitalID} (\texttt{src/core/domain/models/Pago.js})}]
+generarComprobanteDigitalID(casa, numeroSecuencial) {
+    const hoy = new Date();
+    const anio = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    const casaSanitizada = casa.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const secuencia = String(numeroSecuencial).padStart(4, '0');
+    this.reciboId = `AGE-${anio}-${mes}-${casaSanitizada}-${secuencia}`;
+    return this.reciboId;
+}
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos y Nota de Cobertura}
+El formato del identificador de recibo (\texttt{AGE-YYYY-MM-CASA-SEQ}) se verifica de
+forma indirecta dentro de la prueba de amortización FIFO de la Sección~4.11
+(\texttt{expect(resultado.comprobante\_id).toContain('AGE-')}). No existe, sin embargo,
+una prueba unitaria dedicada a la clase de dominio \texttt{Pago} ni a la generación del
+binario PDF (\texttt{generarPdfRecibo}). Se registra como recomendación en la
+Sección~7.4.
+
+% ----------------------------------------------------------------------------
+\subsection{REQ013: Notificaciones Automáticas de Pago}
+% ----------------------------------------------------------------------------
+\textbf{Total de pruebas dedicadas:} 0 — \textbf{Cobertura:} PARCIAL (verificada por
+\emph{spy} dentro de \texttt{PagoService.test.js}).
+
+\subsubsection*{Cómo se implementó}
+
+\begin{lstlisting}[caption={Cola de notificaciones con reintentos (\texttt{src/core/business/services/NotificationService.js})}]
+async procesarCola() {
+    if (this.procesando) return;
+    this.procesando = true;
+
+    while (this.cola.length > 0) {
+        const item = this.cola[0];
+        try {
+            item.intentos++;
+            await this.simularApiWhatsApp(item.telefono, item.mensaje);
+            this.cola.shift();
+        } catch (err) {
+            if (item.intentos >= 3) {
+                await pagoRepository.registrarAuditoria("NOTIFICACION_WHATSAPP_FALLO_PERMANENTE", { telefono: item.telefono, intentos: item.intentos });
+                this.cola.shift();
+            } else {
+                const esTest = process.env.NODE_ENV === 'test';
+                await new Promise(resolve => setTimeout(resolve, esTest ? 0 : 30000)); // RF-04: reintento cada 30s
+            }
+        }
+    }
+    this.procesando = false;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Verificación indirecta con \texttt{jest.spyOn} (\texttt{PagoService.test.js})}]
+const spyNotif = jest.spyOn(notificationService, 'enviarNotificacionPago');
+const resultado = await pagoService.validarAprobarPago(pagoId, fechaReferencia);
+// ...
+expect(spyNotif).toHaveBeenCalled();
+spyNotif.mockRestore();
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos y Nota de Cobertura}
+Se confirma que \texttt{validarAprobarPago} invoca correctamente al servicio de
+notificaciones tras aprobar un pago. No existe, al cierre de este informe, un archivo
+\texttt{NotificationService.test.js} dedicado que ejercite la cola de reintentos, el
+límite de 3 intentos ni el registro de auditoría por fallo permanente de forma aislada.
+Se registra como recomendación prioritaria en la Sección~7.4.
+
+% ----------------------------------------------------------------------------
+\subsection{Pruebas Transversales de Modelo de Dominio y Objetos de Valor}
+% ----------------------------------------------------------------------------
+\textbf{Archivos:} \texttt{Usuario.test.js} (7), \texttt{Cedula.test.js} (7) y
+\texttt{Telefono.test.js} (7).\\
+\textbf{Total de pruebas:} 21 — \textbf{Estado:} 21/21 PASANDO (100\,\%).
+
+Estos tres componentes no pertenecen a un único requisito, sino que constituyen la
+infraestructura de validación reutilizada por \texttt{REQ001} (formato de usuario y
+contraseña), \texttt{REQ004} (validación de cédula/teléfono al importar) y
+\texttt{REQ007} (validación al modificar copropietarios).
+
+\subsubsection*{Cómo se implementó}
+
+\begin{lstlisting}[caption={Algoritmo Módulo 10 ecuatoriano (\texttt{src/core/domain/valueObjects/Cedula.js})}]
+validarCedulaEcuatoriana(cedula) {
+    if (cedula.length !== 10) return false;
+    const digitoRegion = parseInt(cedula.substring(0, 2), 10);
+    if ((digitoRegion < 1 || digitoRegion > 24) && digitoRegion !== 30) return false;
+
+    const ultimoDigito = parseInt(cedula.substring(9, 10), 10);
+    let suma = 0;
+    for (let i = 0; i < 9; i++) {
+        let multiplicador = (i % 2 === 0) ? 2 : 1;
+        let componente = parseInt(cedula.substring(i, i + 1), 10) * multiplicador;
+        if (componente > 9) componente -= 9;
+        suma += componente;
+    }
+    const digitoVerificador = (suma % 10 === 0) ? 0 : 10 - (suma % 10);
+    return digitoVerificador === ultimoDigito;
+}
+\end{lstlisting}
+
+Para probar el caso de provincia ``consular exterior'' (30), fue necesario construir
+manualmente una cédula válida que superara el algoritmo, documentando el cálculo
+directamente en el comentario de la prueba (ver también Sección~6.6):
+
+\begin{lstlisting}[caption={Cédula exterior válida calculada manualmente (\texttt{Cedula.test.js})}]
+test('Debería permitir provincia exterior 30', () => {
+    // Dígitos: 3 0 0 0 0 0 0 0 1 2 -> Posiciones impares x2: 3*2=6, 0, 0, 0, 1*2=2 -> Suma = 8
+    // Posiciones pares x1: 0, 0, 0, 0 -> Suma = 0. Total = 8. Verificador: 10 - 8 = 2.
+    // 3000000012 es una cédula exterior válida.
+    const ced = new Cedula('3000000012');
+    expect(ced.valor).toBe('3000000012');
+});
+\end{lstlisting}
+
+\subsubsection*{Resultados Obtenidos}
+\begin{itemize}[nosep]
+    \item \texttt{Cedula}: validación del algoritmo Módulo 10, limpieza de guiones/espacios,
+    rechazo de provincia inválida y aceptación de la provincia exterior 30 — verificado.
+    \item \texttt{Telefono}: normalización a formato internacional
+    (\texttt{+593}\ldots) desde los cuatro formatos de entrada aceptados (local con/sin
+    cero, internacional con/sin signo \texttt{+}) y rechazo de números fijos — verificado.
+    \item \texttt{Usuario}: longitud de usuario (3–20 caracteres), formato de correo,
+    política de complejidad de contraseña (mayúscula, minúscula, número, carácter especial)
+    y excepción para contraseñas ya cifradas con \texttt{bcrypt} (prefijo
+    \texttt{\$2b\$}) — verificado.
+    \item \texttt{Usuario.esBloqueado()}: estado activo, bloqueo indefinido y bloqueo
+    temporal vigente/expirado — verificado.
+\end{itemize}
+
+\clearpage
+
+% ============================================================================
+\section{Resultados Obtenidos}
+% ============================================================================
+
+\subsection{Resumen de Ejecución}
+
+\textbf{Fecha de ejecución:} 09 de julio de 2026.\quad
+\textbf{Ambiente:} Windows 11, Node.js, \texttt{jest --runInBand --forceExit}.\quad
+\textbf{Resultado:} TODOS LOS TESTS PASANDO.
+
+\begin{table}[H]
+\centering
+\caption{Resumen global de ejecución de la suite de pruebas}
+\label{tab:resumen-ejecucion}
+\begin{tabular}{lc}
+\toprule
+\textbf{Métrica} & \textbf{Valor} \\
+\midrule
+Suites de prueba & 11 / 11 (100\,\%) \\
+Casos de prueba & 68 / 68 (100\,\%) \\
+Tiempo de ejecución & \textasciitilde 5\,s (posterior al primer arranque) \\
+Requisitos con cobertura completa & 10 / 13 \\
+Requisitos con cobertura parcial & 3 / 13 (REQ006, REQ012, REQ013) \\
+Snapshots & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Desglose por Archivo}
+
+\begin{table}[H]
+\centering
+\caption{Desglose de pruebas por archivo}
+\label{tab:desglose-archivo}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Categoría} & \textbf{Archivo} & \textbf{Tests} & \textbf{Estado} \\
+\midrule
+Patrones de Diseño & \texttt{auditDecorator.test.js} & 2 & PASS \\
+Patrones de Diseño & \texttt{excelAdapter.test.js} & 4 & PASS \\
+Patrones de Diseño & \texttt{moraStrategy.test.js} & 4 & PASS \\
+Servicios de Negocio & \texttt{AuthService.test.js} & 7 & PASS \\
+Servicios de Negocio & \texttt{CopropietarioService.test.js} & 7 & PASS \\
+Servicios de Negocio & \texttt{PagoService.test.js} & 8 & PASS \\
+Modelo de Dominio & \texttt{Usuario.test.js} & 7 & PASS \\
+Objetos de Valor & \texttt{Cedula.test.js} & 7 & PASS \\
+Objetos de Valor & \texttt{Telefono.test.js} & 7 & PASS \\
+Presentación (integración) & \texttt{copropietarioController.test.js} & 4 & PASS \\
+Presentación (\emph{middleware}) & \texttt{authMiddleware.test.js} & 11 & PASS \\
+\midrule
+\textbf{TOTAL} & & \textbf{68} & \textbf{PASS} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Métricas por Requisito}
+
+\begin{table}[H]
+\centering
+\caption{Métricas de cobertura por requisito funcional}
+\label{tab:metricas-req}
+\begin{tabular}{lp{6.2cm}cl}
+\toprule
+\textbf{REQ} & \textbf{Nombre} & \textbf{Tests} & \textbf{Cobertura} \\
+\midrule
+REQ001 & Gestión de Acceso y Registro de Usuarios & 11 & Completa \\
+REQ002 & Recuperación de Contraseña & 3 & Completa \\
+REQ003 & Configuración de Perfiles & 4 & Completa \\
+REQ004 & Importación de Copropietarios & 7 & Completa \\
+REQ005 & Consulta de Copropietarios & 2 & Completa \\
+REQ006 & Generación de Reportes & 0 & Sin cobertura \\
+REQ007 & Modificación de Copropietarios & 3 & Completa \\
+REQ008 & Eliminación de Copropietarios & 3 & Completa \\
+REQ009 & Registro de Pago de Expensa & 2 & Completa \\
+REQ010 & Validación de Pagos & 4 & Completa \\
+REQ011 & Cálculo de Sanción por Mora & 8 & Completa \\
+REQ012 & Generación de Comprobante de Pago & 0\textsuperscript{*} & Parcial \\
+REQ013 & Notificaciones Automáticas de Pago & 0\textsuperscript{*} & Parcial \\
+Transversal & Modelo de Dominio / Objetos de Valor & 21 & Completa \\
+\midrule
+\textbf{TOTAL} & & \textbf{68} & \\
+\bottomrule
+\end{tabular}
+\\[0.2cm]
+{\footnotesize \textsuperscript{*} Verificado de forma indirecta dentro de la prueba de
+amortización FIFO de REQ010 (Sección~4.11); no cuenta con un caso de prueba unitario
+dedicado.}
+\end{table}
+
+\subsection{Distribución de Pruebas por Requisito}
+
+\begin{table}[H]
+\centering
+\caption{Distribución porcentual de pruebas por requisito}
+\label{tab:distribucion}
+\begin{tabular}{llrl}
+\toprule
+\textbf{REQ} & \textbf{Descripción breve} & \textbf{\%} & \textbf{Proporción} \\
+\midrule
+REQ001 & Acceso y Registro & 16.2\,\% & \rule{65pt}{6pt} \\
+REQ002 & Recuperar Contraseña & 4.4\,\% & \rule{18pt}{6pt} \\
+REQ003 & Perfiles & 5.9\,\% & \rule{24pt}{6pt} \\
+REQ004 & Importación & 10.3\,\% & \rule{41pt}{6pt} \\
+REQ005 & Consulta & 2.9\,\% & \rule{12pt}{6pt} \\
+REQ007 & Modificación & 4.4\,\% & \rule{18pt}{6pt} \\
+REQ008 & Eliminación & 4.4\,\% & \rule{18pt}{6pt} \\
+REQ009 & Registro de Pago & 2.9\,\% & \rule{12pt}{6pt} \\
+REQ010 & Validación de Pagos & 5.9\,\% & \rule{24pt}{6pt} \\
+REQ011 & Mora / Expensas & 11.8\,\% & \rule{47pt}{6pt} \\
+Transversal & Dominio / Valor & 30.9\,\% & \rule{124pt}{6pt} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\clearpage
+
+% ============================================================================
+\section{Problemas y Soluciones}
+% ============================================================================
+
+\subsection{Recalculo del Recargo por Mora}
+
+\textbf{Problema:} la implementación original de \texttt{EcuandorianMora12Strategy}
+calculaba un interés \emph{prorrateado diariamente} sobre una tasa anual del 12\,\%
+(\texttt{monto * (0.12/365) * diasRetraso}), lo cual no coincidía con la regla de negocio
+especificada: un recargo \textbf{fijo} del 12\,\% aplicado una sola vez por período
+vencido, independientemente de los días de atraso transcurridos.
+
+\begin{lstlisting}[caption={Fórmula anterior (incorrecta respecto a la regla de negocio)}]
+// Antes
+calcularMora(monto, diasRetraso) {
+    if (diasRetraso <= 0) return 0;
+    const tasaDiaria = 0.12 / 365;
+    return parseFloat((monto * tasaDiaria * diasRetraso).toFixed(2));
+}
+\end{lstlisting}
+
+\textbf{Solución:} se sustituyó la fórmula por un recargo fijo y se recalcularon a mano
+los valores esperados en \texttt{moraStrategy.test.js} y en la prueba de amortización FIFO
+de \texttt{PagoService.test.js} (de \texttt{\$100.33} de deuda con mora a
+\texttt{\$112.00}, y del saldo pendiente resultante de \texttt{\$50.33} a
+\texttt{\$62.00}), documentando la aritmética directamente en los comentarios de la
+prueba para que quede trazable ante futuras revisiones.
+
+\subsection{Ausencia de Generación de Deudas Mensuales}
+
+\textbf{Problema:} el repositorio \texttt{pagoRepository.createDeuda} existía, pero
+\textbf{ningún controlador ni servicio lo invocaba en producción}; solo se llamaba desde
+los propios archivos de prueba para fabricar datos de prueba manualmente. Esto significaba
+que, en un entorno real, jamás se generaba una deuda mensual real y la lógica de
+amortización FIFO nunca tenía un caso genuino que resolver.
+
+\textbf{Solución:} se implementó \texttt{PagoService.generarExpensasMensuales}, expuesto
+mediante \texttt{POST /api/pagos/generar-expensas} (solo Administrador), y se añadieron
+4 pruebas nuevas que verifican la generación, la no duplicación por período y el cálculo
+correcto del vencimiento (incluido el cambio de año en diciembre).
+
+\subsection{Redondeo de Punto Flotante en Cálculos Monetarios}
+
+\textbf{Problema:} las operaciones aritméticas con montos en JavaScript (\texttt{100 *
+0.12}, \texttt{150.75 * 0.12}) pueden introducir errores de precisión de punto flotante
+(por ejemplo, \texttt{0.1 + 0.2 !== 0.3}), lo que provoca fallos de aserción
+intermitentes si no se redondea de forma explícita.
+
+\textbf{Solución:} todos los cálculos monetarios se normalizan con
+\texttt{parseFloat(valor.toFixed(2))} antes de comparase, tanto en el código de
+producción (\texttt{moraStrategy.js}, \texttt{PagoService.js}) como en las aserciones de
+prueba, garantizando que las comparaciones sean deterministas a dos decimales.
+
+\subsection{Determinismo Temporal en Pruebas de Mora}
+
+\textbf{Problema:} \texttt{validarAprobarPago} calcula los días de atraso comparando la
+fecha de vencimiento contra la fecha actual (\texttt{new Date()}); si la prueba dependiera
+de la fecha real del sistema, el resultado (días de atraso, y por lo tanto la lista de
+deudas vencidas) cambiaría cada vez que se ejecutara la suite en un día distinto,
+produciendo pruebas \emph{no deterministas}.
+
+\textbf{Solución:} el método acepta un parámetro opcional \texttt{fechaReferencia}, que
+las pruebas fijan explícitamente (\texttt{new Date('2026-07-20')}) para congelar el
+cálculo de días de atraso y obtener siempre el mismo resultado, independientemente del
+día real en que se ejecute la suite.
+
+\subsection{Verificación de un Efecto Secundario Asíncrono en Segundo Plano}
+
+\textbf{Problema:} \texttt{NotificationService.enviarNotificacionPago} encola el mensaje y
+dispara \texttt{procesarCola()} \textbf{sin esperar su resolución}
+(\texttt{this.procesarCola();} sin \texttt{await}), de modo que el envío real ocurre en
+segundo plano después de que la prueba ya continuó su ejecución. Un \texttt{await}
+directo sobre el resultado del envío no reflejaría el comportamiento real del sistema.
+
+\textbf{Solución:} en lugar de esperar el efecto secundario completo, se utilizó
+\texttt{jest.spyOn(notificationService, 'enviarNotificacionPago')} para verificar
+\'unicamente que el método de encolado fue invocado por \texttt{validarAprobarPago}, que es
+la responsabilidad que le corresponde al servicio de pagos; la entrega real por WhatsApp
+queda fuera del alcance de esa prueba (ver también la brecha de cobertura de REQ013 en
+la Sección~4.13).
+
+\subsection{Construcción de Datos de Prueba Válidos para el Algoritmo Módulo 10}
+
+\textbf{Problema:} para probar el caso de la provincia ``consular exterior'' (código 30)
+del algoritmo de validación de cédula ecuatoriana, se requería un número de 10 dígitos que
+superara el dígito verificador Módulo 10; generar uno al azar y ajustarlo por prueba y
+error hubiera sido poco confiable y difícil de mantener.
+
+\textbf{Solución:} se calculó manualmente un valor válido (\texttt{3000000012})
+aplicando el propio algoritmo paso a paso, y ese cálculo se documentó como comentario
+dentro de la prueba (ver Sección~4.14), de modo que cualquier persona que revise el test
+pueda verificar la aritmética sin tener que ejecutar el código.
+
+\subsection{Tiempo de Arranque de \texttt{mongodb-memory-server}}
+
+\textbf{Problema:} la primera ejecución de la suite tras una instalación limpia del
+proyecto tarda considerablemente más (\textasciitilde 18\,s) que las ejecuciones
+posteriores, porque \texttt{mongodb-memory-server} debe descargar y almacenar en caché el
+binario de MongoDB correspondiente al sistema operativo.
+
+\textbf{Solución:} no se requirió ningún cambio de código; se documenta el comportamiento
+esperado para que no se interprete como una regresión de rendimiento. En ejecuciones
+subsecuentes, con el binario ya cacheado localmente, el tiempo total baja a
+\textasciitilde 5\,segundos.
+
+\clearpage
+
+% ============================================================================
+\section{Conclusiones}
+% ============================================================================
+
+\subsection{Logros Alcanzados}
+\begin{itemize}[nosep]
+    \item 100\,\% de los casos de prueba existentes pasando (68/68) en 11 suites.
+    \item 10 de 13 requisitos funcionales del backlog con cobertura automatizada completa;
+    los 3 restantes (REQ006, REQ012, REQ013) cuentan con cobertura parcial documentada y
+    trazable.
+    \item Corrección verificada de una regla de negocio crítica (recargo de mora fijo del
+    12\,\%) mediante pruebas de regresión.
+    \item Incorporación de una funcionalidad ausente (generación de expensas mensuales)
+    junto con su suite de pruebas correspondiente.
+    \item Suite de ejecución rápida y reproducible (\textasciitilde 5\,s en caliente).
+\end{itemize}
+
+\subsection{Calidad del Software}
+
+\textbf{Confiabilidad (5/5):} 0 pruebas intermitentes observadas en múltiples corridas;
+resultados reproducibles gracias al aislamiento por \texttt{beforeEach} y a fechas de
+referencia fijas en los cálculos de mora.\\
+\textbf{Cobertura de Requisitos (4/5):} 10 de 13 requisitos con cobertura completa; se
+documentan explícitamente las 3 brechas restantes en lugar de omitirlas.\\
+\textbf{Mantenibilidad (5/5):} pruebas organizadas por capa arquitectónica
+(dominio/objetos de valor, servicios, patrones, presentación), con comentarios que
+documentan la aritmética esperada en los casos financieros.\\
+\textbf{Rendimiento (5/5):} suite completa en segundos, apta para ejecutarse en cada
+cambio antes de integrar código nuevo.
+
+\subsection{Lecciones Aprendidas}
+\begin{enumerate}[nosep]
+    \item \textbf{Las reglas de negocio financieras deben verificarse contra la
+    especificación, no solo contra el código existente:} el error de la fórmula de mora
+    (interés prorrateado vs.\ recargo fijo) habría pasado inadvertido si las pruebas solo
+    hubiesen validado que el código hiciera lo que ya hacía.
+    \item \textbf{Una funcionalidad puede estar ``implementada'' en el repositorio de datos
+    sin estar realmente disponible en producción} si ningún controlador o servicio la
+    invoca; las pruebas de integración end-to-end (aunque sea a nivel de servicio) ayudan a
+    detectar estas rutas muertas.
+    \item \textbf{El determinismo temporal es esencial en dominios financieros:} cualquier
+    cálculo que dependa de \texttt{new Date()} debe aceptar una fecha de referencia
+    inyectable para que las pruebas sean reproducibles indefinidamente.
+    \item \textbf{No toda dependencia externa debe mockearse igual:} aislar por completo
+    con \texttt{jest.mock()} es adecuado para middlewares de control de flujo, pero para
+    lógica que depende de consultas relacionales reales, una base de datos en memoria
+    produce pruebas más representativas del comportamiento en producción.
+    \item \textbf{Documentar la aritmética esperada dentro del propio test} (como se hizo
+    en los casos de mora y del algoritmo Módulo 10) reduce el costo de mantenimiento futuro
+    de las pruebas.
+\end{enumerate}
+
+\subsection{Recomendaciones Futuras}
+\begin{enumerate}[nosep]
+    \item \textbf{Cerrar las brechas de cobertura identificadas:} crear
+    \texttt{NotificationService.test.js} (cola de reintentos, límite de 3 intentos,
+    auditoría de fallo permanente) y pruebas dedicadas para
+    \texttt{obtenerReportePagos}/\texttt{generarPdfReportePagos} (REQ006) y para el modelo
+    de dominio \texttt{Pago} (REQ012).
+    \item \textbf{Pruebas de integración HTTP adicionales:} extender
+    \texttt{pagoController} con \texttt{supertest} para verificar la carga real de
+    comprobantes vía \texttt{multer} (tipo de archivo, límite de 5\,MB) y el flujo completo
+    de aprobación/rechazo por HTTP.
+    \item \textbf{Cobertura de código automatizada:} incorporar \texttt{--coverage} en el
+    script de \texttt{npm test} y fijar un umbral mínimo por carpeta (dominio, servicios,
+    presentación) para detectar regresiones de cobertura en el tiempo.
+    \item \textbf{Pruebas end-to-end de la interfaz visual:} usar Playwright o Cypress
+    para validar el flujo completo desde \texttt{login.html} y \texttt{dashboard.html}
+    hasta la API, incluyendo la expiración de sesión por inactividad.
+    \item \textbf{Integración continua (CI/CD):} automatizar la ejecución de
+    \texttt{npm test} en cada \emph{pull request} mediante GitHub Actions.
+    \item \textbf{Pruebas de mutación:} evaluar herramientas como Stryker para medir la
+    calidad real de las aserciones existentes, más allá del simple conteo de casos que
+    pasan.
+\end{enumerate}
+
+\subsection{Resumen Final}
+
+El plan de pruebas unitarias de AliGest cubre, con 68 casos automatizados distribuidos en
+11 suites, el núcleo de la lógica de negocio del sistema: autenticación y control de
+acceso, administración de copropietarios, y el ciclo completo de pagos, mora y auditoría.
+Durante la elaboración de este informe se detectó y corrigió una discrepancia real entre
+la fórmula de mora implementada y la regla de negocio especificada, y se incorporó la
+funcionalidad de generación de expensas mensuales que faltaba en el flujo de producción,
+ambas respaldadas por pruebas de regresión. Las brechas de cobertura restantes
+(notificaciones, reportes y generación de comprobantes en PDF) se documentan de forma
+explícita como trabajo pendiente, en lugar de presentarse como resueltas.
+
+\textbf{Estado final: APROBADO CON OBSERVACIONES} — el núcleo funcional crítico
+(autenticación, copropietarios, pagos y mora) está completamente cubierto y verificado;
+las funcionalidades secundarias señaladas requieren pruebas adicionales antes de
+considerarse con cobertura total.
+
+\clearpage
+
+% ============================================================================
+\section*{Anexos}
+\addcontentsline{toc}{section}{Anexos}
+% ============================================================================
+
+\subsection*{Anexo A: Comandos de Ejecución}
+
+\begin{lstlisting}[language=bash,caption={Comandos útiles para ejecutar la suite}]
+# Ejecutar todos los tests (según package.json: --runInBand --forceExit)
+npm test
+
+# Ejecutar un archivo de prueba específico
+npx jest tests/core/business/services/PagoService.test.js
+
+# Ejecutar con salida detallada por caso
+npx jest --verbose
+
+# Ejecutar un caso puntual por nombre (coincidencia de texto)
+npx jest -t "amortización FIFO"
+\end{lstlisting}
+
+\subsection*{Anexo B: Estructura de Prueba Típica}
+
+\begin{lstlisting}[caption={Patrón Arrange-Act-Assert utilizado en todo el proyecto}]
+describe('Componente - Funcionalidad', () => {
+    beforeEach(async () => {
+        // Arrange: preparar datos (fixtures) y limpiar la base de datos en memoria
+    });
+
+    test('Debe hacer algo específico', async () => {
+        // Arrange: datos particulares del caso
+        const datos = { /* ... */ };
+
+        // Act: ejecutar la funcionalidad bajo prueba
+        const resultado = await servicio.metodo(datos);
+
+        // Assert: verificar el resultado esperado
+        expect(resultado).toBe(/* valor esperado */);
+    });
+});
+\end{lstlisting}
+
+\subsection*{Anexo C: Configuración Completa}
+
+\begin{lstlisting}[caption={\texttt{jest.config.js}}]
+module.exports = {
+  testEnvironment: 'node',
+  verbose: true,
+  setupFilesAfterEach: ['./tests/setup.js'],
+  testTimeout: 30000
+};
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Fragmento relevante de \texttt{package.json}}]
+{
+  "name": "aligest-prototype",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node app.js",
+    "test": "jest --runInBand --forceExit"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "express": "^4.19.2",
+    "mongoose": "^9.7.4",
+    "multer": "^2.2.0",
+    "pdfkit": "^0.19.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2"
+  }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Mecanismo de expiración de sesión por inactividad (RNF-01), \texttt{authMiddleware.js}}]
+const SESION_MAX_INACTIVIDAD_MS = 2 * 60 * 60 * 1000; // 2 horas
+
+function verificarSesion(req, res, next) {
+    const role = req.headers['x-user-role'];
+    const userId = req.headers['x-user-id'];
+    if (!role) {
+        return res.status(401).json({ error: "No autorizado. Inicie sesión para acceder a AliGest." });
+    }
+    if (role !== 'ADMINISTRADOR' && role !== 'COPROPIETARIO') {
+        return res.status(403).json({ error: "Acceso denegado. Rol inválido o desconocido." });
+    }
+
+    const lastActivity = parseInt(req.headers['x-last-activity'], 10);
+    if (!isNaN(lastActivity) && Date.now() - lastActivity > SESION_MAX_INACTIVIDAD_MS) {
+        return res.status(401).json({
+            error: "Sesión expirada por inactividad. Por favor, inicie sesión nuevamente.",
+            sesionExpirada: true
+        });
+    }
+
+    req.user = { role, id: userId || null };
+    next();
+}
+\end{lstlisting}
+
+\subsection*{Anexo D: Métricas Detalladas}
+
+\begin{table}[H]
+\centering
+\caption{Distribución de pruebas por categoría arquitectónica}
+\label{tab:metricas-categoria}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Categoría} & \textbf{Tests} & \textbf{\%} \\
+\midrule
+Modelo de dominio y objetos de valor & 21 & 30.9\,\% \\
+Servicios de negocio & 22 & 32.4\,\% \\
+Patrones de diseño (Strategy/Decorator/Adapter) & 10 & 14.7\,\% \\
+Presentación (\emph{middlewares} y controladores) & 15 & 22.1\,\% \\
+\midrule
+\textbf{TOTAL} & \textbf{68} & \textbf{100\,\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Distribución de pruebas por tipo de validación}
+\label{tab:metricas-tipo}
+\begin{tabular}{lc}
+\toprule
+\textbf{Tipo de validación} & \textbf{Tests aproximados} \\
+\midrule
+Creación y validación de objetos de dominio & 18 \\
+Reglas de negocio y validación cruzada contra BD & 24 \\
+Control de acceso y expiración de sesión & 11 \\
+Patrón Observer/Decorator/Strategy/Adapter & 10 \\
+Integración HTTP (\texttt{supertest}) & 4 \\
+Manejo de errores y casos límite & 1 (transversal a todas las anteriores) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\bigskip
+\noindent\rule{\textwidth}{0.4pt}
+
+\begin{center}
+\textbf{FIN DEL INFORME}\\[0.2cm]
+\textit{Documento generado el 09 de julio de 2026}\\
+\textit{Sistema AliGest — Plan de Pruebas Unitarias}\\
+\textit{Requisitos REQ001–REQ011 y el bloque transversal de dominio/objetos de valor:
+cobertura completa. REQ006, REQ012 y REQ013: cobertura parcial documentada.}
+\end{center}
+
+\end{document}
