@@ -61,13 +61,31 @@ const inicializarDatos = async () => {
 if (process.env.NODE_ENV !== 'test') {
     (async () => {
         await inicializarDatos();
-        const PORT = parseInt(process.env.PORT || '3000', 10);
-        app.listen(PORT, () => {
-            console.log(`====================================================`);
-            console.log(` Servidor de AliGest inicializado en puerto ${PORT}`);
-            console.log(` Portal Visual Interactivo: http://localhost:${PORT}`);
-            console.log(`====================================================`);
-        });
+        let port = parseInt(process.env.PORT || '3000', 10);
+        let servidor = null;
+
+        for (let intento = 0; intento < 10 && !servidor; intento++) {
+            try {
+                servidor = await new Promise((resolve, reject) => {
+                    const candidato = app.listen(port);
+                    candidato.once('listening', () => resolve(candidato));
+                    candidato.once('error', reject);
+                });
+            } catch (error) {
+                if (error.code === 'EADDRINUSE' && process.env.AUTO_PORT === 'true') {
+                    console.warn(`El puerto ${port} está ocupado; AliGest intentará el puerto ${port + 1}.`);
+                    port++;
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        if (!servidor) throw new Error('No se encontró un puerto disponible después de 10 intentos.');
+        console.log(`====================================================`);
+        console.log(` Servidor de AliGest inicializado en puerto ${port}`);
+        console.log(` Portal Visual Interactivo: http://localhost:${port}`);
+        console.log(`====================================================`);
     })().catch(error => {
         console.error(`AliGest no pudo iniciar: ${error.message}`);
         process.exitCode = 1;
