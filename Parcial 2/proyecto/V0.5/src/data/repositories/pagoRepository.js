@@ -1,4 +1,4 @@
-const { Pago, Deuda, Auditoria } = require('../../../config/database');
+const { Pago, Deuda, Auditoria, Notificacion } = require('../../../config/database');
 
 function mapDeuda(doc) {
     if (!doc) return null;
@@ -62,10 +62,14 @@ class PagoRepository {
                 monto_pagado: p.monto_pagado,
                 estado: p.estado,
                 fecha_registro: p.fecha_registro,
+                fecha_pago: p.fecha_pago,
                 metodo: p.metodo,
                 periodo: p.periodo,
                 motivo_rechazo: p.motivo_rechazo,
                 comprobante_img: p.comprobante_img,
+                sobrepago: p.sobrepago || 0,
+                recargo_mora_total: p.recargo_mora_total || 0,
+                aplicaciones: p.aplicaciones || [],
                 copropietario_nombre: copro.nombre || '',
                 copropietario_casa: copro.casa || '',
                 copropietario_cedula: copro.cedula || ''
@@ -106,6 +110,7 @@ class PagoRepository {
                 monto_pagado: p.monto_pagado,
                 estado: p.estado,
                 fecha_registro: p.fecha_registro,
+                fecha_pago: p.fecha_pago,
                 metodo: p.metodo,
                 periodo: p.periodo,
                 comprobante_img: p.comprobante_img,
@@ -131,12 +136,19 @@ class PagoRepository {
         return mapDeuda(row);
     }
 
-    async updateDeuda(id, estado, monto) {
-        const res = await Deuda.updateOne({ _id: id }, { estado, monto });
+    async updateDeuda(id, estado, monto, moraAplicada = undefined, recargoMora = undefined) {
+        const cambios = { estado, monto };
+        if (moraAplicada !== undefined) cambios.mora_aplicada = moraAplicada;
+        if (recargoMora !== undefined) cambios.recargo_mora = recargoMora;
+        const res = await Deuda.updateOne({ _id: id }, cambios);
         return res.modifiedCount;
     }
 
-    async registrarPagoInmutable(comprobanteId, copropietarioId, monto, estado, reciboId = null, metodo = 'TRANSFERENCIA', periodo = '', comprobanteImg = null) {
+    async findPagoByComprobanteId(comprobanteId) {
+        return mapPago(await Pago.findOne({ comprobante_id: comprobanteId }));
+    }
+
+    async registrarPagoInmutable(comprobanteId, copropietarioId, monto, estado, reciboId = null, metodo = 'TRANSFERENCIA', periodo = '', comprobanteImg = null, fechaPago = null) {
         const row = await Pago.create({
             comprobante_id: comprobanteId,
             recibo_id: reciboId,
@@ -144,6 +156,7 @@ class PagoRepository {
             monto_pagado: monto,
             estado,
             fecha_registro: new Date().toISOString(),
+            fecha_pago: fechaPago || new Date().toISOString().slice(0, 10),
             metodo,
             periodo,
             comprobante_img: comprobanteImg
@@ -151,12 +164,39 @@ class PagoRepository {
         return row._id.toString();
     }
 
-    async updatePagoEstado(id, estado, reciboId = null, motivoRechazo = null) {
-        const res = await Pago.updateOne({ _id: id }, {
+    async updatePagoEstado(id, estado, reciboId = null, motivoRechazo = null, detalles = {}) {
+        const cambios = {
             estado,
             recibo_id: reciboId,
             motivo_rechazo: motivoRechazo
-        });
+        };
+        if (detalles.sobrepago !== undefined) cambios.sobrepago = detalles.sobrepago;
+        if (detalles.recargoMoraTotal !== undefined) cambios.recargo_mora_total = detalles.recargoMoraTotal;
+        if (detalles.aplicaciones !== undefined) cambios.aplicaciones = detalles.aplicaciones;
+        const res = await Pago.updateOne({ _id: id }, cambios);
+        return res.modifiedCount;
+    }
+
+    // Reserva atómica para impedir que dos administradores procesen el mismo
+    // pago al mismo tiempo. Solo una petición puede cambiar PENDIENTE a PROCESANDO.
+    async reservarPagoPendiente(id) {
+        const res = await Pago.updateOne(
+            { _id: id, estado: 'PENDIENTE_VALIDACION' },
+            { $set: { estado: 'PROCESANDO' } }
+        );
+        return res.modifiedCount === 1;
+    }
+
+    async rechazarPagoPendiente(id, motivo) {
+        const res = await Pago.updateOne(
+            { _id: id, estado: 'PENDIENTE_VALIDACION' },
+            { $set: { estado: 'RECHAZADO', motivo_rechazo: motivo, recibo_id: null } }
+        );
+        return res.modifiedCount === 1;
+    }
+
+    async updateReciboPdf(id, pdfBuffer) {
+        const res = await Pago.updateOne({ _id: id }, { recibo_pdf: pdfBuffer });
         return res.modifiedCount;
     }
 
@@ -172,10 +212,15 @@ class PagoRepository {
             monto_pagado: p.monto_pagado,
             estado: p.estado,
             fecha_registro: p.fecha_registro,
+            fecha_pago: p.fecha_pago,
             metodo: p.metodo,
             periodo: p.periodo,
             motivo_rechazo: p.motivo_rechazo,
             comprobante_img: p.comprobante_img,
+            recibo_pdf: p.recibo_pdf || null,
+            sobrepago: p.sobrepago || 0,
+            recargo_mora_total: p.recargo_mora_total || 0,
+            aplicaciones: p.aplicaciones || [],
             copropietario_nombre: copro.nombre || '',
             copropietario_casa: copro.casa || '',
             copropietario_telefono: copro.telefono || ''
@@ -194,10 +239,15 @@ class PagoRepository {
             monto_pagado: p.monto_pagado,
             estado: p.estado,
             fecha_registro: p.fecha_registro,
+            fecha_pago: p.fecha_pago,
             metodo: p.metodo,
             periodo: p.periodo,
             motivo_rechazo: p.motivo_rechazo,
             comprobante_img: p.comprobante_img,
+            recibo_pdf: p.recibo_pdf || null,
+            sobrepago: p.sobrepago || 0,
+            recargo_mora_total: p.recargo_mora_total || 0,
+            aplicaciones: p.aplicaciones || [],
             copropietario_nombre: copro.nombre || '',
             copropietario_casa: copro.casa || '',
             copropietario_telefono: copro.telefono || '',
@@ -225,6 +275,32 @@ class PagoRepository {
             timestamp: new Date().toISOString()
         });
         return row._id.toString();
+    }
+
+    async deleteDeuda(id) {
+        const result = await Deuda.deleteOne({ _id: id });
+        return result.deletedCount;
+    }
+
+    async registrarNotificacion(tipo, telefono, mensaje, estado = 'PENDIENTE', error = null) {
+        const ahora = new Date().toISOString();
+        const row = await Notificacion.create({
+            tipo, telefono: telefono || '', mensaje, estado, intentos: 0, error,
+            created_at: ahora, updated_at: ahora
+        });
+        return row._id.toString();
+    }
+
+    async actualizarNotificacion(id, estado, intentos, error = null) {
+        const result = await Notificacion.updateOne({ _id: id }, {
+            estado, intentos, error, updated_at: new Date().toISOString()
+        });
+        return result.modifiedCount;
+    }
+
+    async getNotificaciones() {
+        const rows = await Notificacion.find({}).sort({ created_at: -1 });
+        return rows.map(row => ({ ...row.toObject(), id: row._id.toString() }));
     }
 }
 

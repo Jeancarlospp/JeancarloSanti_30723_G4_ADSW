@@ -13,7 +13,7 @@ const conectarBD = async () => {
             console.log("✔ Conectado a MongoDB con éxito.");
         } catch (error) {
             console.error("✘ ERROR al conectar a MongoDB:", error.message);
-            process.exit(1);
+            throw error;
         }
     }
 };
@@ -44,7 +44,15 @@ const UsuarioSchema = new mongoose.Schema({
     lockout_until: { type: String, default: null },
     recovery_code: { type: String, default: null },
     recovery_code_expires_at: { type: String, default: null },
+    recovery_attempts: { type: Number, default: 0 },
     must_change_password: { type: Number, default: 0 }
+});
+
+const SesionSchema = new mongoose.Schema({
+    session_id: { type: String, unique: true, required: true, index: true },
+    usuario_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: true, index: true },
+    created_at: { type: String, required: true },
+    last_activity_at: { type: String, required: true }
 });
 
 const CopropietarioSchema = new mongoose.Schema({
@@ -64,7 +72,9 @@ const DeudaSchema = new mongoose.Schema({
     mes: { type: String, required: true }, // 'YYYY-MM'
     monto: { type: Number, required: true },
     estado: { type: String, default: 'PENDIENTE' }, // 'PENDIENTE', 'PAGADO'
-    fecha_vencimiento: { type: String, required: true }
+    fecha_vencimiento: { type: String, required: true },
+    mora_aplicada: { type: Boolean, default: false },
+    recargo_mora: { type: Number, default: 0 }
 });
 
 const PagoSchema = new mongoose.Schema({
@@ -74,10 +84,21 @@ const PagoSchema = new mongoose.Schema({
     monto_pagado: { type: Number, required: true },
     estado: { type: String, default: 'PENDIENTE_VALIDACION' }, // 'PENDIENTE_VALIDACION', 'APROBADO', 'RECHAZADO'
     fecha_registro: { type: String, required: true },
+    fecha_pago: { type: String, required: true, default: () => new Date().toISOString().slice(0, 10) },
     metodo: { type: String, default: 'TRANSFERENCIA' },
     periodo: { type: String, default: '' },
     motivo_rechazo: { type: String, default: null },
-    comprobante_img: { type: String, default: null }
+    comprobante_img: { type: String, default: null },
+    recibo_pdf: { type: Buffer, default: null },
+    sobrepago: { type: Number, default: 0 },
+    recargo_mora_total: { type: Number, default: 0 },
+    aplicaciones: [{
+        periodo: String,
+        monto_pendiente: Number,
+        recargo_mora: Number,
+        monto_aplicado: Number,
+        saldo_posterior: Number
+    }]
 });
 
 const AuditoriaSchema = new mongoose.Schema({
@@ -86,19 +107,34 @@ const AuditoriaSchema = new mongoose.Schema({
     timestamp: { type: String, required: true }
 });
 
+const NotificacionSchema = new mongoose.Schema({
+    tipo: { type: String, required: true },
+    telefono: { type: String, default: '' },
+    mensaje: { type: String, required: true },
+    estado: { type: String, default: 'PENDIENTE' },
+    intentos: { type: Number, default: 0 },
+    error: { type: String, default: null },
+    created_at: { type: String, required: true },
+    updated_at: { type: String, required: true }
+});
+
 const Usuario = mongoose.model('Usuario', UsuarioSchema);
+const Sesion = mongoose.model('Sesion', SesionSchema);
 const Copropietario = mongoose.model('Copropietario', CopropietarioSchema);
 const Deuda = mongoose.model('Deuda', DeudaSchema);
 const Pago = mongoose.model('Pago', PagoSchema);
 const Auditoria = mongoose.model('Auditoria', AuditoriaSchema);
+const Notificacion = mongoose.model('Notificacion', NotificacionSchema);
 
 module.exports = {
     conectarBD,
     desconectarBD,
     limpiarTablas,
     Usuario,
+    Sesion,
     Copropietario,
     Deuda,
     Pago,
-    Auditoria
+    Auditoria,
+    Notificacion
 };

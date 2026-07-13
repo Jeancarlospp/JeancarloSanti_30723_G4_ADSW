@@ -1,5 +1,5 @@
 class Pago {
-    constructor({ id, comprobanteId, reciboId = null, copropietarioId, monto, estado = 'PENDIENTE_VALIDACION', fechaRegistro = null, metodo = 'TRANSFERENCIA', periodo = '', motivoRechazo = null, comprobanteImg = null }) {
+    constructor({ id, comprobanteId, reciboId = null, copropietarioId, monto, estado = 'PENDIENTE_VALIDACION', fechaRegistro = null, fechaPago = null, metodo = 'TRANSFERENCIA', periodo = '', motivoRechazo = null, comprobanteImg = null }) {
         this.id = id;
         this.comprobanteId = comprobanteId ? comprobanteId.trim() : ""; // Referencia bancaria original
         this.reciboId = reciboId; // Formato formal: AGE-YYYY-MM-CASA-SEQ
@@ -10,6 +10,7 @@ class Pago {
         this.estado = estado; // 'PENDIENTE_VALIDACION', 'APROBADO', 'RECHAZADO'
         
         this.fechaRegistro = fechaRegistro || new Date().toISOString();
+        this.fechaPago = fechaPago || new Date().toISOString().slice(0, 10);
         this.metodo = metodo;
         this.periodo = periodo ? periodo.trim() : ""; // Ej: '2026-07'
         this.motivoRechazo = motivoRechazo;

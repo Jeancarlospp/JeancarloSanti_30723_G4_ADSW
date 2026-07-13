@@ -1,39 +1,41 @@
 const usuarioRepository = require('../../data/repositories/usuarioRepository');
+const sessionRepository = require('../../data/repositories/sessionRepository');
 
-// RNF-01: expiración de sesión tras 2 horas de inactividad
-const SESION_MAX_INACTIVIDAD_MS = 2 * 60 * 60 * 1000;
+// RF-1.1 / RNF-01: la identidad y el rol se obtienen de una sesión almacenada
+// en servidor. El cliente nunca decide sus propios permisos mediante headers.
+async function verificarSesion(req, res, next) {
+    try {
+        const sessionId = req.headers['x-session-id'];
+        const resultado = await sessionRepository.validateAndTouch(sessionId);
 
-function verificarSesion(req, res, next) {
-    // Leer rol e ID de usuario del header HTTP
-    const role = req.headers['x-user-role'];
-    const userId = req.headers['x-user-id'];
-    if (!role) {
-        return res.status(401).json({ error: "No autorizado. Inicie sesión para acceder a AliGest." });
+        if (resultado.estado === 'EXPIRADA') {
+            return res.status(401).json({
+                error: "Sesión expirada por inactividad. Por favor, inicie sesión nuevamente.",
+                sesionExpirada: true
+            });
+        }
+
+        if (resultado.estado !== 'ACTIVA') {
+            return res.status(401).json({
+                error: "No autorizado. Inicie sesión para acceder a AliGest."
+            });
+        }
+
+        req.user = resultado.usuario;
+        req.sessionId = sessionId;
+        next();
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-    if (role !== 'ADMINISTRADOR' && role !== 'COPROPIETARIO') {
-        return res.status(403).json({ error: "Acceso denegado. Rol inválido o desconocido." });
-    }
-
-    // El cliente reenvía en cada solicitud la marca de tiempo de su última
-    // interacción real (clic, tecla, scroll); si ese lapso supera 2 horas,
-    // la sesión se considera expirada por inactividad.
-    const lastActivity = parseInt(req.headers['x-last-activity'], 10);
-    if (!isNaN(lastActivity) && Date.now() - lastActivity > SESION_MAX_INACTIVIDAD_MS) {
-        return res.status(401).json({
-            error: "Sesión expirada por inactividad. Por favor, inicie sesión nuevamente.",
-            sesionExpirada: true
-        });
-    }
-
-    req.user = { role, id: userId || null };
-    next();
 }
 
 function permitirSolo(...rolesPermitidos) {
     return (req, res, next) => {
-        const role = req.headers['x-user-role'];
+        const role = req.user && req.user.role;
         if (!role || !rolesPermitidos.includes(role)) {
-            return res.status(403).json({ error: "Acceso denegado. Permisos insuficientes para esta operación." });
+            return res.status(403).json({
+                error: "Acceso denegado. Permisos insuficientes para esta operación."
+            });
         }
         next();
     };
@@ -42,32 +44,35 @@ function permitirSolo(...rolesPermitidos) {
 async function verificarUltimoAdministrador(req, res, next) {
     try {
         const { id } = req.params;
-        if (!id) {
-            return next();
-        }
+        if (!id) return next();
 
         const usuarioTarget = await usuarioRepository.findById(id);
         if (!usuarioTarget) {
             return res.status(404).json({ error: "El usuario especificado no existe en el sistema." });
         }
 
-        // Si se intenta eliminar o desactivar a un administrador, validar si es el último
-        if (usuarioTarget.role === 'ADMINISTRADOR') {
+        const esEliminacion = req.method === 'DELETE';
+        const nuevoRole = req.body && req.body.role;
+        const nuevoStatus = req.body && req.body.status;
+        const dejaDeSerAdminActivo = esEliminacion
+            || (nuevoRole && nuevoRole !== 'ADMINISTRADOR')
+            || (nuevoStatus && nuevoStatus !== 'ACTIVO');
+
+        if (usuarioTarget.role === 'ADMINISTRADOR' && usuarioTarget.status === 'ACTIVO' && dejaDeSerAdminActivo) {
             const numAdmins = await usuarioRepository.countAdministrators();
             if (numAdmins <= 1) {
-                return res.status(400).json({ 
-                    error: "Operación de seguridad denegada: No se puede eliminar o desactivar al último administrador del sistema." 
-                });
+                const esPropioPerfil = req.user && String(req.user.id) === String(id);
+                const error = esPropioPerfil
+                    ? "No puede degradar su propio perfil. Debe existir al menos un Administrador activo en el sistema."
+                    : "No puede degradar este perfil. El sistema requiere al menos un Administrador activo. Asigne primero otro Administrador.";
+                return res.status(400).json({ error });
             }
         }
+
         next();
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 }
 
-module.exports = {
-    verificarSesion,
-    permitirSolo,
-    verificarUltimoAdministrador
-};
+module.exports = { verificarSesion, permitirSolo, verificarUltimoAdministrador };

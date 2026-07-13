@@ -44,34 +44,41 @@ describe('CopropietarioService (Integration with MongoDB Memory Server)', () => 
 
     test('Debería importar masivamente residentes desde un buffer de Excel válido', async () => {
         const filas = [
-            { "Cédula": "1721151247", "Nombre Completo": "Juan Perez", "Número Casa": "Villa 1", "Teléfono": "0987654321", "Correo": "juan@correo.com", "Saldo Inicial": 100 },
-            { "Cédula": "0921151247", "Nombre Completo": "Maria Gomez", "Número Casa": "Villa 2", "Teléfono": "0987654322", "Correo": "maria@correo.com", "Saldo Inicial": 0 }
+            { "Nombre Completo": "Juan Perez", "Número Casa": "Villa 1", "Cédula": "1721151247", "Correo Electrónico": "juan@correo.com", "Teléfono": "0987654321", "Saldo Inicial": 100 },
+            { "Nombre Completo": "Maria Gomez", "Número Casa": "Villa 2", "Cédula": "0921151247", "Correo Electrónico": "maria@correo.com", "Teléfono": "0987654322", "Saldo Inicial": 0 }
         ];
         const buffer = crearExcelMock(filas);
 
         const importados = await copropietarioService.importarMasivoDesdeExcel(buffer);
 
-        expect(importados).toHaveLength(2);
-        expect(importados[0].username).toBe('villa1');
-        expect(importados[1].username).toBe('villa2');
+        expect(importados.exitosos).toBe(2);
+        expect(importados.fallidos).toBe(0);
+        expect(importados.importados[0].username).toBe('villa1');
+        expect(importados.importados[1].username).toBe('villa2');
+
+        const usuarioVilla1 = await usuarioRepository.findByUsername('villa1');
+        expect(usuarioVilla1.role).toBe('COPROPIETARIO');
+        expect(usuarioVilla1.must_change_password).toBe(1);
+        expect(usuarioVilla1.password).toMatch(/^\$2[aby]\$12\$/);
 
         const todos = await copropietarioService.obtenerTodos();
         expect(todos).toHaveLength(2);
     });
 
-    test('Debería abortar toda la importación masiva si existe una sola fila inválida (Atomicidad)', async () => {
+    test('RF-2.1: importa filas válidas y reporta las inválidas sin guardarlas', async () => {
         const filas = [
-            { "Cédula": "1721151247", "Nombre Completo": "Juan Perez", "Número Casa": "Villa 1", "Correo": "juan@correo.com" },
-            { "Cédula": "1721151241", "Nombre Completo": "Fila Invalida", "Número Casa": "Villa 2", "Correo": "invalido" } // Correo y cédula inválida
+            { "Nombre Completo": "Juan Perez", "Número Casa": "Villa 1", "Cédula": "1721151247", "Correo Electrónico": "juan@correo.com", "Teléfono": "0987654321" },
+            { "Nombre Completo": "Fila Invalida", "Número Casa": "Villa 2", "Cédula": "1721151241", "Correo Electrónico": "invalido", "Teléfono": "0987654322" }
         ];
         const buffer = crearExcelMock(filas);
 
-        await expect(copropietarioService.importarMasivoDesdeExcel(buffer))
-            .rejects.toThrow("Importación cancelada por errores de validación");
+        const resumen = await copropietarioService.importarMasivoDesdeExcel(buffer);
 
-        // No debe haberse guardado ningún copropietario en la base de datos
+        expect(resumen.exitosos).toBe(1);
+        expect(resumen.fallidos).toBe(1);
+        expect(resumen.errores[0].fila).toBe(3);
         const todos = await copropietarioService.obtenerTodos();
-        expect(todos).toHaveLength(0);
+        expect(todos).toHaveLength(1);
     });
 
     test('Debería actualizar los datos del copropietario correctamente', async () => {
@@ -85,17 +92,17 @@ describe('CopropietarioService (Integration with MongoDB Memory Server)', () => 
 
         const actualizados = await copropietarioService.actualizarDatos('1721151247', {
             nombre: 'Juan Modificado',
-            casa: 'Villa 1B',
+            casa: 'Villa 1',
             telefono: '0987654320',
             email: 'juanmodificado@correo.com'
         });
 
         expect(actualizados.nombre).toBe('Juan Modificado');
-        expect(actualizados.casa).toBe('Villa 1B');
+        expect(actualizados.casa).toBe('Villa 1');
 
         const copro = await copropietarioRepository.findByCedula('1721151247');
         expect(copro.nombre).toBe('Juan Modificado');
-        expect(copro.casa).toBe('Villa 1B');
+        expect(copro.casa).toBe('Villa 1');
     });
 
     test('RF-2.4: Debería permitir cambiar la cédula (nuevo representante) y regenerar la contraseña temporal', async () => {
@@ -148,7 +155,7 @@ describe('CopropietarioService (Integration with MongoDB Memory Server)', () => 
         })).rejects.toThrow("ya está registrada en el sistema");
     });
 
-    test('Debería bloquear la eliminación si tiene deudas pendientes y realizar borrado lógico/físico correcto si está solvente', async () => {
+    test('RF-2.5: el borrado lógico preserva el historial financiero e invalida las credenciales', async () => {
         const creado = await copropietarioService.crearCopropietario({
             cedula: '1721151247',
             nombre: 'Para Borrar',
@@ -160,15 +167,6 @@ describe('CopropietarioService (Integration with MongoDB Memory Server)', () => 
         // Crear una deuda pendiente asociada
         await pagoRepository.createDeuda(creado.id, '2026-07', 150.00, 'PENDIENTE', '2026-07-05');
 
-        // Intentar eliminar (debe fallar)
-        await expect(copropietarioService.eliminarCopropietario(creado.id))
-            .rejects.toThrow("No se permite eliminar un copropietario con deudas pendientes.");
-
-        // Marcar la deuda como PAGADA
-        const deudas = await pagoRepository.getDeudasByCopropietario(creado.id);
-        await pagoRepository.updateDeuda(deudas[0].id, 'PAGADO', 0);
-
-        // Intentar eliminar de nuevo (debe ser exitoso ahora)
         const result = await copropietarioService.eliminarCopropietario(creado.id);
         expect(result.mensaje).toContain("eliminado del sistema con éxito");
 
@@ -179,5 +177,8 @@ describe('CopropietarioService (Integration with MongoDB Memory Server)', () => 
         // El usuario debe haberse eliminado físicamente
         const user = await usuarioRepository.findByUsername('villa10');
         expect(user).toBeNull();
+
+        const deudas = await pagoRepository.getDeudasByCopropietario(creado.id);
+        expect(deudas).toHaveLength(1);
     });
 });

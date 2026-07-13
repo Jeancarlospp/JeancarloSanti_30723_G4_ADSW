@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authService = require('../../core/business/services/AuthService');
 const usuarioRepository = require('../../data/repositories/usuarioRepository');
+const sessionRepository = require('../../data/repositories/sessionRepository');
 const { verificarSesion, permitirSolo, verificarUltimoAdministrador } = require('../middlewares/authMiddleware');
 
 // Iniciar Sesión (RF-1.1)
@@ -15,18 +16,14 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// REQ001-5 / REQ001-6: Registro público de usuarios
+// RF-1.1: las cuentas se crean exclusivamente desde la gestión del Administrador.
 router.post('/register', async (req, res) => {
-    try {
-        const { username, email, password } = req.body;
-        const result = await authService.registrarUsuarioPublico(username, email, password);
-        res.status(201).json({
-            mensaje: 'Usuario registrado correctamente.',
-            usuario: result
-        });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
+    res.status(403).json({ error: 'El registro público está deshabilitado. Solicite al Administrador la creación de su cuenta.' });
+});
+
+router.post('/logout', verificarSesion, async (req, res) => {
+    await sessionRepository.invalidate(req.sessionId);
+    res.status(200).json({ mensaje: 'Sesión cerrada correctamente.' });
 });
 
 // Cambiar contraseña (para primer ingreso o cambio regular)
@@ -84,7 +81,15 @@ router.put('/usuarios/:id', verificarSesion, permitirSolo('ADMINISTRADOR'), veri
             return res.status(400).json({ error: "El rol y el estado son campos obligatorios." });
         }
 
+        if (!['ADMINISTRADOR', 'COPROPIETARIO'].includes(role)) {
+            return res.status(400).json({ error: "El rol seleccionado no es válido." });
+        }
+        if (!['ACTIVO', 'BLOQUEADO'].includes(status)) {
+            return res.status(400).json({ error: "El estado seleccionado no es válido." });
+        }
+
         await usuarioRepository.updatePerfil(id, role, status);
+        await sessionRepository.invalidateUserSessions(id);
         res.status(200).json({ mensaje: "Perfil de usuario modificado correctamente." });
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -95,6 +100,7 @@ router.put('/usuarios/:id', verificarSesion, permitirSolo('ADMINISTRADOR'), veri
 router.delete('/usuarios/:id', verificarSesion, permitirSolo('ADMINISTRADOR'), verificarUltimoAdministrador, async (req, res) => {
     try {
         const { id } = req.params;
+        await sessionRepository.invalidateUserSessions(id);
         await usuarioRepository.delete(id);
         res.status(200).json({ mensaje: "Perfil eliminado con éxito del sistema." });
     } catch (err) {

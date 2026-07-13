@@ -5,8 +5,9 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
+    "demo": "node scripts/start-demo.js",
     "dev": "node app.js",
-    "test": "jest --runInBand --forceExit"
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

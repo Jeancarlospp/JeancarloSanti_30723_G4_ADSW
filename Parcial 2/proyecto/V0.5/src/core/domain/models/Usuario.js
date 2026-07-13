@@ -1,5 +1,13 @@
 class Usuario {
-    constructor({ id, username, email, password, role, status = 'ACTIVO', failedAttempts = 0, lockoutUntil = null, recoveryCode = null, recoveryCodeExpiresAt = null, mustChangePassword = 0 }) {
+    constructor(datos = {}) {
+        const {
+            id, username, email, password, role, status = 'ACTIVO',
+            failedAttempts = datos.failed_attempts || 0,
+            lockoutUntil = datos.lockout_until || null,
+            recoveryCode = datos.recovery_code || null,
+            recoveryCodeExpiresAt = datos.recovery_code_expires_at || null,
+            mustChangePassword = datos.must_change_password || 0
+        } = datos;
         this.id = id;
         this.username = username ? username.trim() : "";
         this.email = email ? email.trim() : "";

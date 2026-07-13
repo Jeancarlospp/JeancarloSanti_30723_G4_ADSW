@@ -3,6 +3,7 @@ const copropietarioService = require('../../../../src/core/business/services/Cop
 const pagoRepository = require('../../../../src/data/repositories/pagoRepository');
 const copropietarioRepository = require('../../../../src/data/repositories/copropietarioRepository');
 const notificationService = require('../../../../src/core/business/services/NotificationService');
+const { Pago } = require('../../../../config/database');
 
 describe('PagoService (Integration with MongoDB Memory Server)', () => {
     let copro;
@@ -32,7 +33,8 @@ describe('PagoService (Integration with MongoDB Memory Server)', () => {
             'evidencia_base64'
         );
 
-        expect(result.mensaje).toContain("pendiente de verificación");
+        expect(result.mensaje).toContain("Número de solicitud");
+        expect(result.solicitudId).toBeDefined();
 
         const pendientes = await pagoService.obtenerPagosPendientes();
         expect(pendientes).toHaveLength(1);
@@ -107,14 +109,55 @@ describe('PagoService (Integration with MongoDB Memory Server)', () => {
         expect(de2.estado).toBe('PENDIENTE');
         expect(de2.monto).toBe(62.00); // Amortizada parcialmente
 
-        // El saldo de cuenta total del copropietario debió debitarse: 200.00 - 150.00 = $50.00
+        // El saldo incorpora primero $12 de mora y luego debita el pago: 200 + 12 - 150 = 62.
         const coproActualizado = await copropietarioRepository.findById(copro.id);
-        expect(coproActualizado.saldo).toBe(50.00);
+        expect(coproActualizado.saldo).toBe(62.00);
+
+        const pagoPersistido = await Pago.findById(pagoId);
+        expect(pagoPersistido.recibo_pdf.length).toBeGreaterThan(100);
+        expect(pagoPersistido.aplicaciones).toHaveLength(2);
 
         // Se debió enviar la notificación por WhatsApp
         expect(spyNotif).toHaveBeenCalled();
 
         spyNotif.mockRestore();
+    });
+
+    test('RF-3.3: no vuelve a aplicar el recargo del 12% al mismo período', async () => {
+        const fechaReferencia = new Date('2026-07-20');
+        const deudaId = await pagoRepository.createDeuda(copro.id, '2026-06', 100, 'PENDIENTE', '2026-07-05');
+
+        await pagoService.reportarPagoCopropietario(usuarioId, 'PAGO-1', 50, 'TRANSFERENCIA', '2026-06', 'img');
+        let pendiente = (await pagoService.obtenerPagosPendientes())[0];
+        const primera = await pagoService.validarAprobarPago(pendiente.id, fechaReferencia);
+        expect(primera.recargo_mora_aplicado).toBe(12);
+
+        let deuda = (await pagoRepository.getDeudasByCopropietario(copro.id)).find(d => d.id === deudaId);
+        expect(deuda.monto).toBe(62);
+        expect(deuda.mora_aplicada).toBe(true);
+
+        await pagoService.reportarPagoCopropietario(usuarioId, 'PAGO-2', 62, 'TRANSFERENCIA', '2026-06', 'img');
+        pendiente = (await pagoService.obtenerPagosPendientes())[0];
+        const segunda = await pagoService.validarAprobarPago(pendiente.id, new Date('2026-08-20'));
+        expect(segunda.recargo_mora_aplicado).toBe(0);
+
+        deuda = (await pagoRepository.getDeudasByCopropietario(copro.id)).find(d => d.id === deudaId);
+        expect(deuda.estado).toBe('PAGADO');
+        expect(deuda.monto).toBe(0);
+    });
+
+    test('RNF-02: una reserva atómica impide aprobar dos veces el mismo pago concurrentemente', async () => {
+        await pagoService.reportarPagoCopropietario(usuarioId, 'PAGO-CONCURRENTE', 25, 'TRANSFERENCIA', '2026-07', 'img');
+        const pagoId = (await pagoService.obtenerPagosPendientes())[0].id;
+
+        const resultados = await Promise.allSettled([
+            pagoService.validarAprobarPago(pagoId, new Date('2026-07-20')),
+            pagoService.validarAprobarPago(pagoId, new Date('2026-07-20'))
+        ]);
+
+        expect(resultados.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+        expect(resultados.filter(r => r.status === 'rejected')).toHaveLength(1);
+        expect((await pagoRepository.findPagoById(pagoId)).estado).toBe('APROBADO');
     });
 
     test('Debería rechazar un pago correctamente y notificar al copropietario', async () => {
@@ -152,6 +195,7 @@ describe('PagoService (Integration with MongoDB Memory Server)', () => {
         expect(deudaGenerada.monto).toBe(100.00);
         expect(deudaGenerada.estado).toBe('PENDIENTE');
         expect(deudaGenerada.fecha_vencimiento).toBe('2026-09-05');
+        expect((await copropietarioRepository.findById(copro.id)).saldo).toBe(300.00);
     });
 
     test('No debería duplicar la expensa mensual si ya fue generada para el mismo período', async () => {
@@ -163,6 +207,7 @@ describe('PagoService (Integration with MongoDB Memory Server)', () => {
 
         const deudas = await pagoRepository.getDeudasByCopropietario(copro.id);
         expect(deudas.filter(d => d.mes === '2026-08')).toHaveLength(1);
+        expect((await copropietarioRepository.findById(copro.id)).saldo).toBe(300.00);
     });
 
     test('Debería rechazar un período con formato inválido', async () => {

@@ -241,7 +241,7 @@
                             </button>
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
                             <div>
                                 <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Nombre de Copropietario</label>
                                 <input type="text" id="filtroNombre" oninput="consultarCopropietarios()" placeholder="Ej. Erick Tufiño" class="input-premium w-full rounded-xl px-3.5 py-2.5 text-xs focus:outline-none">
@@ -265,6 +265,18 @@
                                     <option value="deudor">Con Deudas / Mora</option>
                                 </select>
                             </div>
+                            <div>
+                                <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Perfil</label>
+                                <select id="filtroPerfil" onchange="consultarCopropietarios()" class="input-premium w-full rounded-xl px-3.5 py-2.5 text-xs focus:outline-none">
+                                    <option value="">Todos</option><option value="COPROPIETARIO">Copropietario</option><option value="ADMINISTRADOR">Administrador</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Estado del Usuario</label>
+                                <select id="filtroEstadoUsuario" onchange="consultarCopropietarios()" class="input-premium w-full rounded-xl px-3.5 py-2.5 text-xs focus:outline-none">
+                                    <option value="">Todos</option><option value="ACTIVO">Activo</option><option value="BLOQUEADO">Bloqueado</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -285,7 +297,9 @@
                                         <th class="p-4 cursor-pointer hover:bg-slate-200/30" onclick="cambiarOrdenamiento('casa')">Villa</th>
                                         <th class="p-4 cursor-pointer hover:bg-slate-200/30" onclick="cambiarOrdenamiento('nombre')">Residente</th>
                                         <th class="p-4 cursor-pointer hover:bg-slate-200/30" onclick="cambiarOrdenamiento('cedula')">Identificación (Cédula)</th>
-                                        <th class="p-4">Contacto</th>
+                                        <th class="p-4 cursor-pointer hover:bg-slate-200/30" onclick="cambiarOrdenamiento('email')">Contacto</th>
+                                        <th class="p-4 cursor-pointer hover:bg-slate-200/30" onclick="cambiarOrdenamiento('perfil')">Perfil</th>
+                                        <th class="p-4 cursor-pointer hover:bg-slate-200/30" onclick="cambiarOrdenamiento('estado_usuario')">Estado Usuario</th>
                                         <th class="p-4 text-right cursor-pointer hover:bg-slate-200/30" onclick="cambiarOrdenamiento('saldo')">Saldo Financiero</th>
                                         <th class="p-4 text-center">Gestión</th>
                                     </tr>
@@ -309,7 +323,7 @@
                         <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl text-xs space-y-2 leading-relaxed">
                             <span class="font-bold text-logo-blue">Columnas requeridas obligatorias (Nombre flexible):</span>
                             <p class="text-slate-500">El archivo cargado debe incluir las columnas descritas a continuación para su validación:</p>
-                            <p class="font-mono text-logo-blue text-[10px]">"Cédula", "Nombre Completo", "Número Casa", "Correo Electrónico", "Teléfono", "Saldo Inicial"</p>
+                            <p class="font-mono text-logo-blue text-[10px]">A: "Nombre Completo", B: "Número Casa", C: "Cédula", D: "Correo Electrónico", E: "Teléfono", F: "Saldo Inicial" (opcional)</p>
                         </div>
 
                         <form id="excelForm" onsubmit="ejecutarImportacionExcel(event)" class="space-y-4">
@@ -321,7 +335,7 @@
                                     <span class="text-logo-green text-xs font-semibold" id="selectedFileName">Ninguno seleccionado</span>
                                 </div>
                             </div>
-                            <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3.5 rounded-lg transition cursor-pointer text-xs uppercase tracking-wider">
+                            <button id="importSubmitButton" type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3.5 rounded-lg transition cursor-pointer text-xs uppercase tracking-wider">
                                 Procesar y Validar Lote Excel
                             </button>
                         </form>
@@ -348,7 +362,7 @@
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr class="bg-slate-100 text-slate-500 text-[10px] uppercase tracking-wider font-semibold border-b border-slate-200/80">
-                                        <th class="p-4">ID</th>
+                                        <th class="p-4">Residente / Casa</th>
                                         <th class="p-4">Nombre de Usuario</th>
                                         <th class="p-4">Correo de Contacto</th>
                                         <th class="p-4">Rol Asignado</th>
@@ -378,6 +392,7 @@
                                         <th class="p-4">Villa</th>
                                         <th class="p-4">Referencia Transferencia</th>
                                         <th class="p-4">Período Declarado</th>
+                                        <th class="p-4">Fecha Solicitud</th>
                                         <th class="p-4">Monto Reportado</th>
                                         <th class="p-4">Método</th>
                                         <th class="p-4">Evidencia</th>
@@ -387,6 +402,21 @@
                                 <tbody id="tablaAdminPagosPendientes" class="divide-y divide-slate-100 text-xs text-slate-600">
                                     <!-- Pending payments loaded here -->
                                 </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="panel rounded-2xl overflow-hidden">
+                        <div class="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                            <div>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Auditoría de Notificaciones WhatsApp</h3>
+                                <p class="text-[10px] text-slate-400 mt-1">Estado, reintentos y fallos que requieren atención administrativa.</p>
+                            </div>
+                            <button onclick="cargarNotificaciones()" class="text-[10px] font-bold text-[#0a4a82] uppercase">Actualizar</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-[10px]">
+                                <thead class="bg-slate-100 text-slate-500 uppercase"><tr><th class="p-3">Fecha</th><th class="p-3">Tipo</th><th class="p-3">Destinatario</th><th class="p-3">Estado</th><th class="p-3">Intentos</th><th class="p-3">Detalle</th></tr></thead>
+                                <tbody id="tablaNotificaciones" class="divide-y divide-slate-100"></tbody>
                             </table>
                         </div>
                     </div>
@@ -601,6 +631,11 @@
                             </div>
 
                             <div class="space-y-1">
+                                <label class="block text-slate-500 font-bold uppercase tracking-wider text-[9px]">Fecha en que realizó el pago</label>
+                                <input type="date" id="pagoFecha" required class="input-premium w-full rounded-xl px-4 py-2.5 text-slate-600 focus:outline-none">
+                            </div>
+
+                            <div class="space-y-1">
                                 <label class="block text-slate-500 font-bold uppercase tracking-wider text-[9px]">Foto del Comprobante Bancario (JPG, JPEG o PNG, máx. 5MB)</label>
                                 <div class="relative border-2 border-dashed border-slate-300 hover:border-[var(--corp-navy)] rounded-lg p-5 text-center cursor-pointer transition bg-slate-50">
                                     <input type="file" id="pagoComprobanteFile" accept="image/jpeg,image/jpg,image/png" required class="absolute inset-0 opacity-0 w-full h-full cursor-pointer">
@@ -626,6 +661,23 @@
                     <div class="panel rounded-2xl overflow-hidden">
                         <div class="p-5 border-b border-slate-200 bg-slate-50">
                             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Historial de Reportes y Transacciones Históricas</h3>
+                            <p class="text-slate-500 text-[10px] mt-1">Consulta y exporta únicamente tus propios pagos.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
+                                <input type="date" id="miReporteFechaInicio" aria-label="Fecha inicial" class="input-premium rounded-xl px-3 py-2 text-xs">
+                                <input type="date" id="miReporteFechaFin" aria-label="Fecha final" class="input-premium rounded-xl px-3 py-2 text-xs">
+                                <input type="month" id="miReportePeriodo" aria-label="Período" class="input-premium rounded-xl px-3 py-2 text-xs">
+                                <select id="miReporteEstado" aria-label="Estado" class="input-premium rounded-xl px-3 py-2 text-xs">
+                                    <option value="">Todos los estados</option>
+                                    <option value="PENDIENTE_VALIDACION">Pendiente</option>
+                                    <option value="APROBADO">Aprobado</option>
+                                    <option value="RECHAZADO">Rechazado</option>
+                                </select>
+                                <div class="flex gap-2">
+                                    <button onclick="consultarMiReportePagos()" class="btn-primary text-white px-3 py-2 rounded-xl text-[10px] font-bold uppercase">Filtrar</button>
+                                    <button onclick="descargarMiReportePagosPdf()" class="bg-[#0a4a82] text-white px-3 py-2 rounded-xl text-[10px] font-bold uppercase">PDF</button>
+                                </div>
+                            </div>
+                            <div id="miReporteError" class="hidden mt-3 text-rose-600 text-[10px] font-medium"></div>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
@@ -815,13 +867,22 @@
 
     <!-- MODAL VER EVIDENCIA DE PAGO -->
     <div id="viewEvidenceModal" class="hidden fixed inset-0 z-50 bg-slate-900/70  flex justify-center items-center p-4">
-        <div class="panel p-6 rounded-xl w-full max-w-lg space-y-4 relative border border-slate-200 bg-white text-slate-800">
-            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">Evidencia de Transferencia Cargada</h3>
+        <div class="panel p-6 rounded-xl w-full max-w-4xl space-y-4 relative border border-slate-200 bg-white text-slate-800 max-h-[92vh] overflow-y-auto">
+            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">Revisión completa del pago</h3>
             
             <div class="bg-slate-50 rounded-lg p-4 flex items-center justify-center overflow-auto max-h-[400px] border border-slate-200">
                 <img id="evidenceImage" class="hidden max-h-[380px] rounded-md" alt="Comprobante bancario">
                 <p id="evidenceContent" class="font-mono text-[11px] text-logo-blue break-all leading-relaxed whitespace-pre-wrap">Ninguna evidencia</p>
             </div>
+
+            <div id="evidencePaymentInfo" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs"></div>
+            <div class="border border-slate-200 rounded-lg overflow-x-auto">
+                <table class="w-full text-left text-[11px]">
+                    <thead class="bg-slate-100 text-slate-500 uppercase"><tr><th class="p-2">Período</th><th class="p-2">Pendiente</th><th class="p-2">Mora 12%</th><th class="p-2">Aplicación propuesta</th><th class="p-2">Saldo posterior</th></tr></thead>
+                    <tbody id="evidenceDebtBreakdown"></tbody>
+                </table>
+            </div>
+            <div id="evidenceTotals" class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-slate-700"></div>
 
             <div class="flex justify-end">
                 <button onclick="cerrarEvidenciaModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-2.5 rounded-xl transition text-xs uppercase tracking-wider border border-slate-200">Cerrar</button>
@@ -878,12 +939,13 @@
 
 
     <script>
-        const userRole = localStorage.getItem('userRole') || 'COPROPIETARIO';
+        const userRole = localStorage.getItem('userRole');
         const userId = localStorage.getItem('userId');
         const username = localStorage.getItem('username');
+        const sessionId = localStorage.getItem('sessionId');
 
         // Validar sesión obligatoria
-        if (!userRole || !userId) {
+        if (!userRole || !userId || !sessionId) {
             cerrarSesion();
         }
 
@@ -897,7 +959,7 @@
         }
 
         function authHeaders(extra = {}) {
-            return { 'x-user-role': userRole, 'x-user-id': userId, 'x-last-activity': localStorage.getItem('lastActivity') || Date.now().toString(), ...extra };
+            return { 'x-session-id': sessionId, ...extra };
         }
 
         if (!localStorage.getItem('lastActivity')) {
@@ -931,11 +993,9 @@
             return fetchOriginal(...args).then(res => {
                 if (res.status === 401) {
                     res.clone().json().then(data => {
-                        if (data && data.sesionExpirada) {
-                            alert(data.error || "Sesión expirada. Por favor, inicie sesión nuevamente.");
-                            cerrarSesion();
-                        }
-                    }).catch(() => {});
+                        alert((data && data.error) || "La sesión ya no es válida. Por favor, inicie sesión nuevamente.");
+                        cerrarSesion();
+                    }).catch(() => cerrarSesion());
                 }
                 return res;
             });
@@ -1054,7 +1114,12 @@
         });
 
         // CERRAR SESIÓN
-        function cerrarSesion() {
+        async function cerrarSesion() {
+            if (sessionId) {
+                try {
+                    await fetchOriginal('/api/auth/logout', { method: 'POST', headers: { 'x-session-id': sessionId } });
+                } catch { /* el cierre local siempre debe completarse */ }
+            }
             localStorage.clear();
             window.location.href = '/';
         }
@@ -1087,6 +1152,10 @@
 
             if (tab === 'reportes') {
                 consultarReportePagos();
+            }
+            if (tab === 'pagos') {
+                consultarPagosPendientes();
+                cargarNotificaciones();
             }
 
             // Close mobile menu if open
@@ -1157,8 +1226,10 @@
             const inicio = document.getElementById('rangoInicio').value;
             const fin = document.getElementById('rangoFin').value;
             const estado = document.getElementById('filtroEstado').value;
+            const perfil = document.getElementById('filtroPerfil').value;
+            const estadoUsuario = document.getElementById('filtroEstadoUsuario').value;
 
-            let query = `?nombre=${nombre}&casa=${casa}&casaInicio=${inicio}&casaFin=${fin}&estadoCuenta=${estado}`;
+            const query = `?nombre=${encodeURIComponent(nombre)}&casa=${encodeURIComponent(casa)}&casaInicio=${inicio}&casaFin=${fin}&estadoCuenta=${estado}&perfil=${perfil}&estadoUsuario=${estadoUsuario}`;
 
             try {
                 const res = await fetch(`/api/copropietarios${query}`, {
@@ -1171,10 +1242,13 @@
                     let valA = a[sortingCol];
                     let valB = b[sortingCol];
 
-                    // Si es saldo o id, parsear
-                    if (sortingCol === 'saldo' || sortingCol === 'id') {
+                    // Los montos y números de casa se ordenan numéricamente.
+                    if (sortingCol === 'saldo') {
                         valA = parseFloat(valA);
                         valB = parseFloat(valB);
+                    } else if (sortingCol === 'casa') {
+                        valA = parseInt(String(valA).replace(/[^0-9]/g, ''), 10) || 0;
+                        valB = parseInt(String(valB).replace(/[^0-9]/g, ''), 10) || 0;
                     } else {
                         valA = String(valA).toLowerCase();
                         valB = String(valB).toLowerCase();
@@ -1189,7 +1263,7 @@
                 tbody.innerHTML = '';
                 
                 if(list.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No se encontraron copropietarios con los criterios de búsqueda seleccionados.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-500 italic">No se encontraron copropietarios con los criterios seleccionados. Ajuste los filtros e intente nuevamente.</td></tr>`;
                     return;
                 }
 
@@ -1214,12 +1288,14 @@
                                 <div class="font-medium text-[11px]">${c.telefono}</div>
                                 <div class="text-[10px] text-slate-400">${c.email}</div>
                             </td>
+                            <td class="p-4 text-[10px] font-bold text-[#0a4a82]">${c.perfil || 'N/A'}</td>
+                            <td class="p-4 text-[10px] font-bold ${c.estado_usuario === 'ACTIVO' ? 'text-emerald-700' : 'text-rose-600'}">${c.estado_usuario || 'N/A'}</td>
                             <td class="p-4 text-right font-bold text-sm ${c.saldo > 0 ? 'text-rose-600' : 'text-emerald-600'}">
                                 $${parseFloat(c.saldo).toFixed(2)}
                             </td>
                             <td class="p-4 text-center space-x-1.5">
                                 <button onclick="abrirEdicionCopropietario('${c.cedula}', '${c.nombre}', '${c.casa}', '${c.telefono}', '${c.email}', ${c.saldo})" class="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/15 text-amber-600 font-semibold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Editar</button>
-                                <button onclick="ejecutarEliminacionCopropietario(${c.id}, '${c.nombre}', '${c.casa}')" class="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/15 text-rose-600 font-semibold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Eliminar</button>
+                                <button onclick="ejecutarEliminacionCopropietario('${c.id}', '${c.nombre}', '${c.casa}')" class="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/15 text-rose-600 font-semibold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Eliminar</button>
                             </td>
                         </tr>
                     `;
@@ -1242,7 +1318,16 @@
         // RF-2.2: Exportar listas (Excel o PDF)
         async function exportarReporte(formato) {
             try {
-                const res = await fetch(`/api/copropietarios/exportar/${formato}`, {
+                const query = new URLSearchParams({
+                    nombre: document.getElementById('filtroNombre').value,
+                    casa: document.getElementById('filtroCasa').value,
+                    casaInicio: document.getElementById('rangoInicio').value,
+                    casaFin: document.getElementById('rangoFin').value,
+                    estadoCuenta: document.getElementById('filtroEstado').value,
+                    perfil: document.getElementById('filtroPerfil').value,
+                    estadoUsuario: document.getElementById('filtroEstadoUsuario').value
+                }).toString();
+                const res = await fetch(`/api/copropietarios/exportar/${formato}?${query}`, {
                     headers: authHeaders()
                 });
 
@@ -1344,7 +1429,7 @@
                             <td class="p-4"><span class="bg-blue-50 text-[#0a4a82] px-2.5 py-1 rounded-lg border border-blue-100 font-bold">${row.copropietario_casa}</span></td>
                             <td class="p-4 font-mono text-[11px] text-slate-500">${row.comprobante_id}</td>
                             <td class="p-4 font-mono text-[11px] text-slate-600">${row.periodo || 'N/A'}</td>
-                            <td class="p-4 text-slate-500">${new Date(row.fecha_registro).toLocaleDateString()}</td>
+                            <td class="p-4 text-slate-500">${row.fecha_pago || new Date(row.fecha_registro).toLocaleDateString()}</td>
                             <td class="p-4 text-right font-bold text-slate-800">$${parseFloat(row.monto_pagado).toFixed(2)}</td>
                             <td class="p-4 font-bold ${colorEstado}">${row.estado}</td>
                         </tr>
@@ -1554,6 +1639,7 @@
             const fileInput = document.getElementById('excelFile');
             const resultBox = document.getElementById('importResult');
             const resultText = document.getElementById('importResultText');
+            const submitButton = document.getElementById('importSubmitButton');
             resultBox.classList.add('hidden');
 
             const file = fileInput.files[0];
@@ -1563,6 +1649,8 @@
             formData.append('file', file);
 
             try {
+                submitButton.disabled = true;
+                submitButton.innerText = 'Procesando y creando cuentas…';
                 const res = await fetch('/api/copropietarios/importar', {
                     method: 'POST',
                     headers: authHeaders(),
@@ -1572,8 +1660,12 @@
                 const data = await res.json();
                 if (res.ok) {
                     resultBox.className = "p-4 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 space-y-3";
-                    resultText.innerHTML = `<b>¡Importación Masiva Completada!</b><br>${data.mensaje}`;
-                    document.getElementById('reportDataInput').value = JSON.stringify(data.copropietarios);
+                    const errores = data.resumen.errores || [];
+                    const advertencias = data.resumen.advertencias || [];
+                    resultText.innerHTML = `<b>¡Importación completada!</b><br>${data.mensaje}` +
+                        (errores.length ? `<br><br><b>Errores:</b><br>${errores.map(e => `Fila ${e.fila}: ${e.mensaje}`).join('<br>')}` : '') +
+                        (advertencias.length ? `<br><br><b>Advertencias:</b><br>${advertencias.join('<br>')}` : '');
+                    document.getElementById('reportDataInput').value = JSON.stringify(data.resumen);
                     resultBox.classList.remove('hidden');
                     consultarCopropietarios();
                     consultarPerfiles();
@@ -1585,6 +1677,9 @@
                 }
             } catch (err) {
                 alert("Error al cargar archivo.");
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerText = 'Procesar y Validar Lote Excel';
             }
         }
 
@@ -1602,7 +1697,7 @@
                         'Content-Type': 'application/json',
                         ...authHeaders()
                     },
-                    body: JSON.stringify({ resultados: JSON.parse(resultados) })
+                    body: JSON.stringify({ resumen: JSON.parse(resultados) })
                 });
 
                 if (!res.ok) {
@@ -1637,7 +1732,7 @@
                 list.forEach(u => {
                     tbody.innerHTML += `
                         <tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-                            <td class="p-4 font-mono text-slate-400 text-[11px]">${u.id}</td>
+                            <td class="p-4"><span class="font-bold text-slate-700">${u.nombre || 'Sin residente vinculado'}</span><span class="block text-[10px] text-slate-400">${u.casa || 'Cuenta administrativa'}</span></td>
                             <td class="p-4 font-bold text-slate-800">${u.username}</td>
                             <td class="p-4 text-slate-500">${u.email}</td>
                             <td class="p-4"><span class="px-2.5 py-1 rounded-lg bg-blue-50 text-[#0a4a82] font-bold border border-blue-100 text-[10px]">${u.role}</span></td>
@@ -1645,7 +1740,7 @@
                                 <span class="px-2.5 py-1 rounded-lg font-bold text-[10px] ${u.status === 'ACTIVO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}">${u.status}</span>
                             </td>
                             <td class="p-4 text-center">
-                                <button onclick="abrirEdicionPerfil(${u.id}, '${u.username}', '${u.role}', '${u.status}')" class="bg-blue-50 hover:bg-blue-100 border border-blue-100 text-[#0a4a82] font-bold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Configurar</button>
+                                <button onclick="abrirEdicionPerfil('${u.id}', '${u.username}', '${u.role}', '${u.status}')" class="bg-blue-50 hover:bg-blue-100 border border-blue-100 text-[#0a4a82] font-bold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Configurar</button>
                             </td>
                         </tr>
                     `;
@@ -1681,7 +1776,11 @@
                 });
                 const data = await res.json();
                 if(res.ok) {
-                    alert(data.mensaje);
+                    const comprobante = data.comprobanteDigital || {};
+                    let mensaje = `${data.mensaje}\nRecibo: ${comprobante.comprobante_id || 'generado'}`;
+                    if (comprobante.recargo_mora_aplicado > 0) mensaje += `\nRecargo por mora aplicado: $${comprobante.recargo_mora_aplicado.toFixed(2)}`;
+                    if (comprobante.sobrepago > 0) mensaje += `\nPago excede la deuda. Crédito a favor: $${comprobante.sobrepago.toFixed(2)}`;
+                    alert(mensaje);
                     cerrarEdicionPerfil();
                     consultarPerfiles();
                     consultarCopropietarios();
@@ -1724,7 +1823,7 @@
                 pagosPendientesCache = list;
 
                 if (list.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No hay comprobantes pendientes de validación administrativa.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-slate-400 italic">No hay pagos pendientes de validación.</td></tr>`;
                     return;
                 }
 
@@ -1737,14 +1836,15 @@
                             </td>
                             <td class="p-4 font-mono text-slate-500 text-[11px]">${p.comprobante_id}</td>
                             <td class="p-4 font-mono text-[11px] text-slate-600">${p.periodo || 'N/A'}</td>
+                            <td class="p-4 text-[11px] text-slate-500">${new Date(p.fecha_registro).toLocaleDateString()}</td>
                             <td class="p-4 font-bold text-slate-800">$${parseFloat(p.monto_pagado).toFixed(2)}</td>
                             <td class="p-4 text-[10px] uppercase font-bold text-slate-500">${p.metodo}</td>
                             <td class="p-4">
-                                <button onclick="verEvidenciaPago(${p.id})" class="text-[#0a4a82] hover:underline font-semibold text-[10px] uppercase tracking-wider cursor-pointer">Ver Comprobante</button>
+                                <button onclick="verEvidenciaPago('${p.id}')" class="text-[#0a4a82] hover:underline font-semibold text-[10px] uppercase tracking-wider cursor-pointer">Ver Comprobante</button>
                             </td>
                             <td class="p-4 text-center space-x-1.5">
-                                <button onclick="aprobarPago(${p.id})" class="bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-[#3da046] font-semibold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Aprobar</button>
-                                <button onclick="abrirRechazoPago(${p.id})" class="bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-600 font-semibold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Rechazar</button>
+                                <button onclick="aprobarPago('${p.id}')" class="bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-[#3da046] font-semibold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Aprobar</button>
+                                <button onclick="abrirRechazoPago('${p.id}')" class="bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-600 font-semibold px-2 py-1 rounded-lg transition cursor-pointer text-[10px] uppercase tracking-wider">Rechazar</button>
                             </td>
                         </tr>
                     `;
@@ -1752,7 +1852,27 @@
             } catch {}
         }
 
-        function verEvidenciaPago(pagoId) {
+        async function cargarNotificaciones() {
+            const tbody = document.getElementById('tablaNotificaciones');
+            if (!tbody) return;
+            try {
+                const res = await fetch('/api/pagos/notificaciones', { headers: authHeaders() });
+                const list = await res.json();
+                if (!res.ok) throw new Error(list.error || 'No fue posible cargar las notificaciones.');
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">Aún no existen notificaciones registradas.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(item => {
+                    const color = item.estado === 'EXITOSO' ? 'text-emerald-700' : item.estado === 'FALLIDO' ? 'text-rose-600' : 'text-amber-600';
+                    return `<tr><td class="p-3">${new Date(item.created_at).toLocaleString()}</td><td class="p-3 font-bold">${item.tipo}</td><td class="p-3">${item.telefono || 'Sin teléfono'}</td><td class="p-3 font-bold ${color}">${item.estado}</td><td class="p-3">${item.intentos}</td><td class="p-3 text-slate-500">${item.error || 'Sin novedades'}</td></tr>`;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-600">${err.message}</td></tr>`;
+            }
+        }
+
+        async function verEvidenciaPago(pagoId) {
             const pago = pagosPendientesCache.find(p => String(p.id) === String(pagoId));
             const imgData = pago ? pago.comprobante_img : null;
             const img = document.getElementById('evidenceImage');
@@ -1769,6 +1889,37 @@
             }
 
             document.getElementById('viewEvidenceModal').classList.remove('hidden');
+
+            const info = document.getElementById('evidencePaymentInfo');
+            const breakdown = document.getElementById('evidenceDebtBreakdown');
+            const totals = document.getElementById('evidenceTotals');
+            info.innerHTML = '<span class="col-span-full text-slate-400">Calculando estado de cuenta…</span>';
+            breakdown.innerHTML = '';
+            totals.innerHTML = '';
+
+            try {
+                const res = await fetch(`/api/pagos/${pagoId}/revision`, { headers: authHeaders() });
+                const detalle = await res.json();
+                if (!res.ok) throw new Error(detalle.error || 'No fue posible cargar el detalle.');
+
+                info.innerHTML = `
+                    <div><b>Residente</b><span class="block">${detalle.copropietario.nombre}</span></div>
+                    <div><b>Casa</b><span class="block">${detalle.copropietario.casa}</span></div>
+                    <div><b>Referencia</b><span class="block">${detalle.pago.comprobante_id}</span></div>
+                    <div><b>Monto reportado</b><span class="block">$${parseFloat(detalle.pago.monto_pagado).toFixed(2)}</span></div>
+                    <div><b>Período</b><span class="block">${detalle.pago.periodo || 'N/A'}</span></div>
+                    <div><b>Método</b><span class="block">${detalle.pago.metodo}</span></div>
+                    <div><b>Fecha del pago</b><span class="block">${detalle.pago.fecha_pago || 'N/A'}</span></div>
+                    <div><b>Fecha de solicitud</b><span class="block">${new Date(detalle.pago.fecha_registro).toLocaleString()}</span></div>`;
+
+                breakdown.innerHTML = detalle.deudas.length === 0
+                    ? '<tr><td colspan="5" class="p-3 text-center text-slate-400">No tiene deudas pendientes.</td></tr>'
+                    : detalle.deudas.map(d => `<tr class="border-t border-slate-100"><td class="p-2">${d.periodo}</td><td class="p-2">$${parseFloat(d.montoPendiente).toFixed(2)}</td><td class="p-2 ${d.recargo12 > 0 ? 'text-rose-600 font-bold' : ''}">$${parseFloat(d.recargo12).toFixed(2)}</td><td class="p-2 text-emerald-700">$${parseFloat(d.aplicacionPropuesta).toFixed(2)}</td><td class="p-2">$${parseFloat(d.saldoPosterior).toFixed(2)}</td></tr>`).join('');
+
+                totals.innerHTML = `<b>Deuda total con mora:</b> $${detalle.totalDeudaConMora.toFixed(2)} &nbsp; | &nbsp; <b>Recargo nuevo:</b> $${detalle.totalRecargosNuevos.toFixed(2)} &nbsp; | &nbsp; <b>Saldo proyectado:</b> $${detalle.saldoCuentaProyectado.toFixed(2)} &nbsp; | &nbsp; <b>Crédito por sobrepago:</b> $${detalle.sobrepagoProyectado.toFixed(2)}`;
+            } catch (err) {
+                info.innerHTML = `<span class="col-span-full text-rose-600">${err.message}</span>`;
+            }
         }
 
         function cerrarEvidenciaModal() {
@@ -1791,6 +1942,7 @@
                     consultarPagosPendientes();
                     consultarCopropietarios();
                     cargarEstadisticasGlobales();
+                    setTimeout(cargarNotificaciones, 500);
                 } else {
                     alert("Error: " + data.error);
                 }
@@ -1832,6 +1984,7 @@
                     alert(data.mensaje);
                     cerrarRechazoPago();
                     consultarPagosPendientes();
+                    setTimeout(cargarNotificaciones, 500);
                 } else {
                     alert("Error: " + data.error);
                 }
@@ -1845,14 +1998,11 @@
 
         async function cargarMiEstadoDeCuenta() {
             try {
-                // Hacemos una consulta general enviando nuestro usuario ID, filtrando por casa
-                const res = await fetch(`/api/copropietarios`, {
+                const res = await fetch('/api/copropietarios/me', {
                     headers: authHeaders()
                 });
-                const list = await res.json();
-                
-                // Buscar nuestro residente (que coincide con la villa/casa asignada al usuario o id)
-                const miPerfil = list.find(c => String(c.usuario_id) === String(userId));
+                const miPerfil = await res.json();
+                if (!res.ok) throw new Error(miPerfil.error || 'No se pudo cargar el perfil.');
                 
                 if (miPerfil) {
                     document.getElementById('coproInfoNombre').innerText = miPerfil.nombre;
@@ -1922,12 +2072,74 @@
             } catch {}
         }
 
-        async function cargarMisPagos() {
+        function leerFiltrosMiReporte() {
+            return {
+                fechaInicio: document.getElementById('miReporteFechaInicio')?.value || '',
+                fechaFin: document.getElementById('miReporteFechaFin')?.value || '',
+                periodo: document.getElementById('miReportePeriodo')?.value || '',
+                estado: document.getElementById('miReporteEstado')?.value || ''
+            };
+        }
+
+        async function consultarMiReportePagos() {
+            const filtros = leerFiltrosMiReporte();
+            const error = document.getElementById('miReporteError');
+            error.classList.add('hidden');
+            if (!Object.values(filtros).some(Boolean)) {
+                error.innerText = 'Seleccione al menos un filtro para generar el reporte personalizado.';
+                error.classList.remove('hidden');
+                return;
+            }
+            if (filtros.fechaInicio && filtros.fechaFin && filtros.fechaInicio > filtros.fechaFin) {
+                error.innerText = 'Rango de fechas inválido. La fecha inicial debe ser menor o igual a la fecha final.';
+                error.classList.remove('hidden');
+                return;
+            }
+            await cargarMisPagos(filtros);
+        }
+
+        function descargarMiReportePagosPdf() {
+            const filtros = leerFiltrosMiReporte();
+            const error = document.getElementById('miReporteError');
+            if (!Object.values(filtros).some(Boolean)) {
+                error.innerText = 'Seleccione al menos un filtro antes de exportar el reporte.';
+                error.classList.remove('hidden');
+                return;
+            }
+            descargarArchivoAutenticado(`/api/pagos/reportes/pdf?${new URLSearchParams(filtros)}`, 'mis_pagos.pdf');
+        }
+
+        async function descargarArchivoAutenticado(url, nombre) {
             try {
-                const res = await fetch('/api/pagos/copropietario/pagos', {
+                const res = await fetch(url, { headers: authHeaders() });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'No fue posible descargar el archivo.');
+                }
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = nombre;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(blobUrl);
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function cargarMisPagos(filtros = null) {
+            try {
+                const url = filtros
+                    ? `/api/pagos/reportes?${new URLSearchParams(filtros)}`
+                    : '/api/pagos/copropietario/pagos';
+                const res = await fetch(url, {
                     headers: authHeaders()
                 });
                 const list = await res.json();
+                if (!res.ok) throw new Error(list.error || 'No fue posible consultar los pagos.');
                 const tbody = document.getElementById('tablaCoproHistorial');
                 tbody.innerHTML = '';
 
@@ -2018,6 +2230,7 @@
             const monto = document.getElementById('pagoMonto').value;
             const metodo = document.getElementById('pagoMetodo').value;
             const periodo = document.getElementById('pagoPeriodo').value;
+            const fechaPago = document.getElementById('pagoFecha').value;
             const file = document.getElementById('pagoComprobanteFile').files[0];
 
             if (!file) {
@@ -2031,6 +2244,7 @@
             formData.append('monto', monto);
             formData.append('metodo', metodo);
             formData.append('periodo', periodo);
+            formData.append('fechaPago', fechaPago);
             formData.append('comprobante', file);
 
             try {

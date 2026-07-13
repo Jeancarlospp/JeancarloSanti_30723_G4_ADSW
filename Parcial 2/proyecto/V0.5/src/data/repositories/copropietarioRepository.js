@@ -5,14 +5,20 @@ function mapDocument(doc) {
     const obj = doc.toObject ? doc.toObject() : doc;
     obj.id = obj._id.toString();
     if (obj.usuario_id) {
-        obj.usuario_id = obj.usuario_id.toString();
+        if (obj.usuario_id._id) {
+            obj.perfil = obj.usuario_id.role || '';
+            obj.estado_usuario = obj.usuario_id.status || '';
+            obj.usuario_id = obj.usuario_id._id.toString();
+        } else {
+            obj.usuario_id = obj.usuario_id.toString();
+        }
     }
     return obj;
 }
 
 class CopropietarioRepository {
     async findAll() {
-        const rows = await Copropietario.find({ is_deleted: 0 });
+        const rows = await Copropietario.find({ is_deleted: 0 }).populate('usuario_id', 'role status');
         return rows.map(mapDocument);
     }
 

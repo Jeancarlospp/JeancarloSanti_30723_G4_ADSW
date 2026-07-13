@@ -98,7 +98,7 @@
                 <div class="flex flex-col sm:flex-row justify-center items-center gap-3 text-xs mt-6 border-t border-slate-200 pt-4">
                     <a href="#" onclick="toggleForm('recovery')" class="text-logo-blue hover:text-blue-800 transition font-medium">¿Olvidaste tu contraseña?</a>
                     <span class="hidden sm:inline text-slate-300">•</span>
-                    <a href="#" onclick="toggleForm('register')" class="text-logo-blue hover:text-blue-800 transition font-medium">Crear cuenta</a>
+                    <span class="text-slate-400">Las cuentas las entrega el Administrador</span>
                 </div>
                 <div id="errorMsg" class="hidden bg-rose-50 border border-rose-200 text-rose-600 text-xs p-3.5 rounded-xl text-center font-medium"></div>
             </div>
@@ -258,6 +258,7 @@
                     localStorage.setItem('username', data.session.username);
                     localStorage.setItem('userEmail', data.session.email);
                     localStorage.setItem('mustChangePassword', data.session.mustChangePassword ? 'true' : 'false');
+                    localStorage.setItem('sessionId', data.session.sessionId);
                     localStorage.setItem('lastActivity', Date.now().toString());
 
                     window.location.href = '/dashboard';
@@ -291,7 +292,9 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    sMsg.innerHTML = `Código generado con éxito: <br><b class="text-sm tracking-widest text-slate-800 font-mono">${data.codigoSimulado}</b>`;
+                    sMsg.innerHTML = data.codigoSimulado
+                        ? `Modo demostración — código generado: <br><b class="text-sm tracking-widest text-slate-800 font-mono">${data.codigoSimulado}</b>`
+                        : 'Código enviado correctamente al correo registrado. Tiene una vigencia de 10 minutos.';
                     sMsg.classList.remove('hidden');
                     // Pasar al siguiente formulario
                     setTimeout(() => {

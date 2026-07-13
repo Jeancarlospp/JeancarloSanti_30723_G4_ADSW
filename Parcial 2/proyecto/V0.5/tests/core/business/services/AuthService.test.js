@@ -1,5 +1,6 @@
 const authService = require('../../../../src/core/business/services/AuthService');
 const usuarioRepository = require('../../../../src/data/repositories/usuarioRepository');
+const bcrypt = require('bcrypt');
 
 describe('AuthService (Integration with MongoDB Memory Server)', () => {
     beforeEach(async () => {
@@ -22,6 +23,7 @@ describe('AuthService (Integration with MongoDB Memory Server)', () => {
         const userInDb = await usuarioRepository.findByUsername(username);
         expect(userInDb).toBeDefined();
         expect(userInDb.password).not.toBe(password); // Cifrada
+        expect(bcrypt.getRounds(userInDb.password)).toBeGreaterThanOrEqual(10);
     });
 
     test('Debería arrojar error si el nombre de usuario o correo electrónico ya existen al registrar', async () => {
@@ -44,6 +46,7 @@ describe('AuthService (Integration with MongoDB Memory Server)', () => {
         expect(session.username).toBe(username);
         expect(session.role).toBe('COPROPIETARIO');
         expect(session.mustChangePassword).toBe(false);
+        expect(session.sessionId).toMatch(/^[a-f0-9]{64}$/);
     });
 
     test('Debería bloquear la cuenta por 15 minutos en el tercer intento fallido de inicio de sesión', async () => {
@@ -71,7 +74,7 @@ describe('AuthService (Integration with MongoDB Memory Server)', () => {
 
         const result = await authService.generarCodigoRecuperacion(email);
 
-        expect(result.mensaje).toBe("Código enviado correctamente.");
+        expect(result.mensaje).toContain("Código enviado correctamente");
         expect(result.codigoSimulado).toHaveLength(6);
         expect(result.username).toBe('recuperable');
 
@@ -113,5 +116,26 @@ describe('AuthService (Integration with MongoDB Memory Server)', () => {
 
         await expect(authService.recuperarContrasena(username, user.recovery_code, 'NewPassword123!'))
             .rejects.toThrow("El código de verificación ha expirado. Solicite uno nuevo.");
+    });
+
+    test('RF-1.2: invalida el código después de tres intentos incorrectos', async () => {
+        await authService.registrarUsuarioPublico('recintentos', 'recintentos@correo.com', 'Password123!');
+        await authService.generarCodigoRecuperacion('recintentos@correo.com');
+
+        await expect(authService.recuperarContrasena('recintentos', '000000', 'NewPassword123!')).rejects.toThrow('Intentos restantes: 2');
+        await expect(authService.recuperarContrasena('recintentos', '000000', 'NewPassword123!')).rejects.toThrow('Intentos restantes: 1');
+        await expect(authService.recuperarContrasena('recintentos', '000000', 'NewPassword123!')).rejects.toThrow('agotaron los 3 intentos');
+
+        const user = await usuarioRepository.findByUsername('recintentos');
+        expect(user.recovery_code).toBeNull();
+    });
+
+    test('RNF-01: desbloquea automáticamente la cuenta al cumplirse los 15 minutos', async () => {
+        await authService.registrarUsuarioPublico('desbloqueo', 'desbloqueo@correo.com', 'Password123!');
+        await usuarioRepository.lockoutUser('desbloqueo', new Date(Date.now() - 1000).toISOString());
+
+        const session = await authService.login('desbloqueo', 'Password123!');
+        expect(session.username).toBe('desbloqueo');
+        expect((await usuarioRepository.findByUsername('desbloqueo')).status).toBe('ACTIVO');
     });
 });

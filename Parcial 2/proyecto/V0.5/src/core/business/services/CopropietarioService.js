@@ -7,6 +7,7 @@ const ExcelCopropietarioAdapter = require('../patterns/excelAdapter');
 const Copropietario = require('../../domain/models/Copropietario');
 const Cedula = require('../../domain/valueObjects/Cedula');
 const bcrypt = require('bcrypt');
+const sessionRepository = require('../../../data/repositories/sessionRepository');
 
 class CopropietarioService {
     async importarMasivoDesdeExcel(buffer) {
@@ -19,99 +20,101 @@ class CopropietarioService {
 
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const rawRows = xlsx.utils.sheet_to_json(worksheet);
-
-        if (rawRows.length === 0) {
-            throw new Error("El archivo Excel está vacío.");
+        const matriz = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+        const normalizar = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const cabeceras = matriz[0] || [];
+        const ordenEsperado = [
+            ['nombrecompleto', 'nombre'],
+            ['numerocasa', 'numerodecasa', 'casa', 'numvilla'],
+            ['cedula', 'ceduladeidentidad', 'idnacional'],
+            ['correoelectronico', 'correo', 'email'],
+            ['telefono', 'celular']
+        ];
+        if (!ordenEsperado.every((variantes, i) => variantes.includes(normalizar(cabeceras[i])))) {
+            throw new Error("Estructura de archivo incorrecta. Use este orden: Nombre Completo, Número Casa, Cédula, Correo Electrónico, Teléfono y, opcionalmente, Saldo Inicial.");
         }
 
-        const exitosos = [];
+        const rawRows = xlsx.utils.sheet_to_json(worksheet, { defval: '' });
+        if (rawRows.length === 0) throw new Error("El archivo Excel está vacío.");
+
+        const validos = [];
         const errores = [];
+        const advertencias = [];
         const cedulasEnLote = new Set();
         const casasEnLote = new Set();
+        const emailsEnLote = new Set();
+        const [copropietariosExistentes, usuariosExistentes] = await Promise.all([
+            copropietarioRepository.findAll(),
+            usuarioRepository.findAll()
+        ]);
+        const cedulasExistentes = new Set(copropietariosExistentes.map(c => c.cedula));
+        const casasExistentes = new Set(copropietariosExistentes.map(c => c.casa));
+        const emailsExistentes = new Set(usuariosExistentes.map(u => u.email.toLowerCase()));
+        const usernamesExistentes = new Set(usuariosExistentes.map(u => u.username));
+        const filasAProcesar = rawRows.slice(0, 60);
+        if (rawRows.length > 60) {
+            advertencias.push(`Solo se procesaron los primeros 60 registros; ${rawRows.length - 60} quedaron fuera del lote.`);
+        }
 
-        // 1. Fase de Validación del lote (Garantizar atomicidad: si uno falla, se cancela todo)
-        for (let i = 0; i < rawRows.length; i++) {
-            const rawRow = rawRows[i];
-            const filaIndex = i + 1;
-
+        for (let i = 0; i < filasAProcesar.length; i++) {
             try {
-                const adapted = ExcelCopropietarioAdapter.adaptRow(rawRow);
-                const copro = new Copropietario(adapted);
+                const copro = new Copropietario(ExcelCopropietarioAdapter.adaptRow(filasAProcesar[i]));
                 copro.validarDatosFila();
-
-                // Validar duplicados dentro del mismo archivo
-                if (cedulasEnLote.has(copro.cedula)) {
-                    throw new Error(`Cédula duplicada en el archivo (${copro.cedula}).`);
+                const numeroCasa = parseInt(copro.casa.replace(/[^0-9]/g, ''), 10);
+                if (!Number.isInteger(numeroCasa) || numeroCasa < 1 || numeroCasa > 60) {
+                    throw new Error(`El número de casa '${copro.casa}' debe estar entre 1 y 60.`);
                 }
-                if (casasEnLote.has(copro.casa)) {
-                    throw new Error(`Número de casa/villa duplicado en el archivo (${copro.casa}).`);
-                }
+                if (cedulasEnLote.has(copro.cedula)) throw new Error(`Cédula duplicada en el archivo (${copro.cedula}).`);
+                if (casasEnLote.has(copro.casa)) throw new Error(`Número de casa duplicado (${copro.casa}).`);
+                if (emailsEnLote.has(copro.email.toLowerCase())) throw new Error(`Correo duplicado (${copro.email}).`);
 
                 cedulasEnLote.add(copro.cedula);
                 casasEnLote.add(copro.casa);
+                emailsEnLote.add(copro.email.toLowerCase());
 
-                // Validar contra base de datos
-                const existeCedula = await copropietarioRepository.findByCedula(copro.cedula);
-                if (existeCedula) {
-                    throw new Error(`La cédula ${copro.cedula} ya está registrada en el sistema.`);
-                }
+                if (cedulasExistentes.has(copro.cedula)) throw new Error(`La cédula ${copro.cedula} ya está registrada.`);
+                if (casasExistentes.has(copro.casa)) throw new Error(`Número de casa duplicado: ${copro.casa} ya está registrado.`);
+                if (emailsExistentes.has(copro.email.toLowerCase())) throw new Error(`El correo ${copro.email} ya está registrado.`);
+                const username = copro.casa.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                if (usernamesExistentes.has(username)) throw new Error(`El usuario generado '${username}' ya existe.`);
 
-                const existeCasa = await copropietarioRepository.findByCasa(copro.casa);
-                if (existeCasa) {
-                    throw new Error(`La casa/villa ${copro.casa} ya está asignada a otro copropietario.`);
-                }
-
-                exitosos.push(copro);
+                validos.push({ copro, fila: i + 2 });
             } catch (err) {
-                errores.push({
-                    fila: filaIndex,
-                    mensaje: err.message
-                });
+                errores.push({ fila: i + 2, mensaje: err.message });
             }
         }
 
-        // Si existe un solo error en el lote, rechazar toda la importación (REQ004 / Sprint 1)
-        if (errores.length > 0) {
-            const errorReport = errores.map(e => `Fila ${e.fila}: ${e.mensaje}`).join(' | ');
-            throw new Error(`Importación cancelada por errores de validación: ${errorReport}`);
-        }
-
-        // 2. Fase de Persistencia e Inserción Atómica
-        const importados = [];
-        for (const copro of exitosos) {
-            // Generar credenciales de acceso automáticas (RF-2.1)
-            // Nombre de usuario = número de casa (ej: 'Casa 14')
-            const username = copro.casa.replace(/\s+/g, '').toLowerCase(); 
-            // Generar clave temporal
+        const resultadosPersistencia = await Promise.all(validos.map(async ({ copro, fila }) => {
+            const username = copro.casa.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
             const tempPassword = `Temp-${Math.floor(1000 + Math.random() * 9000)}!`;
             const hashed = await bcrypt.hash(tempPassword, 12);
+            let createdUser = null;
+            try {
+                createdUser = await usuarioRepository.create(username, copro.email, hashed, 'COPROPIETARIO', 1);
+                copro.usuarioId = createdUser.id;
+                copro.id = await copropietarioRepository.create(copro);
+                return { ok: true, data: {
+                    id: copro.id, cedula: copro.cedula, nombre: copro.nombre,
+                    casa: copro.casa, telefono: copro.telefono, email: copro.email,
+                    saldo: copro.saldo, username, passwordTemporal: tempPassword
+                } };
+            } catch (err) {
+                if (createdUser) await usuarioRepository.delete(createdUser.id);
+                return { ok: false, error: { fila, mensaje: err.message } };
+            }
+        }));
 
-            // Crear el perfil de usuario copropietario
-            const createdUser = await usuarioRepository.create(username, copro.email, hashed, 'COPROPIETARIO', 1);
-            
-            // Asignar el ID de usuario recién creado
-            copro.usuarioId = createdUser.id;
+        const importados = resultadosPersistencia.filter(r => r.ok).map(r => r.data);
+        errores.push(...resultadosPersistencia.filter(r => !r.ok).map(r => r.error));
 
-            // Guardar en la tabla de copropietarios
-            const coproId = await copropietarioRepository.create(copro);
-            copro.id = coproId;
-
-            // Retornar credenciales temporales generadas para el PDF
-            importados.push({
-                id: copro.id,
-                cedula: copro.cedula,
-                nombre: copro.nombre,
-                casa: copro.casa,
-                telefono: copro.telefono,
-                email: copro.email,
-                saldo: copro.saldo,
-                username,
-                passwordTemporal: tempPassword
-            });
-        }
-
-        return importados;
+        return {
+            totalProcesados: filasAProcesar.length,
+            exitosos: importados.length,
+            fallidos: errores.length,
+            importados,
+            errores,
+            advertencias
+        };
     }
 
     async obtenerTodos() {
@@ -132,13 +135,15 @@ class CopropietarioService {
             throw new Error("Copropietario no encontrado.");
         }
 
-        // Si se cambia de villa, verificar disponibilidad
+        // RF-2.4: el número de casa es el identificador estable y no se modifica.
         if (datos.casa && datos.casa !== copropietario.casa) {
-            const existeCasa = await copropietarioRepository.findByCasa(datos.casa);
-            if (existeCasa) {
-                throw new Error(`La villa ${datos.casa} ya está registrada.`);
-            }
+            throw new Error("El número de casa no puede ser modificado.");
         }
+
+        const hayCambios = ['cedula', 'nombre', 'telefono', 'email', 'saldo'].some(campo =>
+            datos[campo] !== undefined && String(datos[campo]) !== String(copropietario[campo])
+        );
+        if (!hayCambios) throw new Error("No se detectaron cambios. Modifique al menos un campo para continuar.");
 
         // RF-2.4: Cambio de representante (nueva cédula) -> regenerar contraseña temporal
         let nuevaCedula = copropietario.cedula;
@@ -158,6 +163,7 @@ class CopropietarioService {
                     passwordTemporal = `Temp-${Math.floor(1000 + Math.random() * 9000)}!`;
                     const hashed = await bcrypt.hash(passwordTemporal, 12);
                     await usuarioRepository.updatePasswordAndForceMustChange(copropietario.usuario_id, hashed);
+                    await sessionRepository.invalidateUserSessions(copropietario.usuario_id);
                 }
             }
         }
@@ -173,6 +179,13 @@ class CopropietarioService {
         });
         temp.validarDatosFila();
 
+        if (copropietario.usuario_id && temp.email !== copropietario.email) {
+            const emailOcupado = await usuarioRepository.findByEmail(temp.email);
+            if (emailOcupado && String(emailOcupado.id) !== String(copropietario.usuario_id)) {
+                throw new Error(`El correo electrónico ${temp.email} ya está registrado.`);
+            }
+        }
+
         await copropietarioRepository.update(cedula, {
             cedula: temp.cedula,
             nombre: temp.nombre,
@@ -181,6 +194,10 @@ class CopropietarioService {
             email: temp.email,
             saldo: temp.saldo
         });
+
+        if (copropietario.usuario_id && temp.email !== copropietario.email) {
+            await usuarioRepository.updateEmail(copropietario.usuario_id, temp.email);
+        }
 
         return { ...temp, passwordTemporal };
     }
@@ -191,15 +208,10 @@ class CopropietarioService {
             throw new Error("El copropietario no existe.");
         }
 
-        // Regla: No eliminar si tiene deudas pendientes
-        const deudasPendientes = await pagoRepository.countPendingDeudas(id);
-        if (deudasPendientes > 0) {
-            throw new Error("No se permite eliminar un copropietario con deudas pendientes.");
-        }
-
-        // Si tiene historial financiero, la eliminación física se puede hacer sólo si se confirma (se procesa en el controller)
-        // Pero el service realiza la eliminación física directa una vez invocado.
+        // El controller exige confirmación reforzada cuando existe historial.
+        // El residente se elimina lógicamente para conservar la trazabilidad.
         if (copropietario.usuario_id) {
+            await sessionRepository.invalidateUserSessions(copropietario.usuario_id);
             await usuarioRepository.delete(copropietario.usuario_id);
         }
         await copropietarioRepository.delete(id);
@@ -253,6 +265,8 @@ class CopropietarioService {
             "Villa / Casa": c.casa,
             "Celular": c.telefono,
             "Correo": c.email,
+            "Perfil": c.perfil || '',
+            "Estado Usuario": c.estado_usuario || '',
             "Saldo Pendiente": c.saldo
         }));
         const ws = xlsx.utils.json_to_sheet(formatData);
@@ -261,8 +275,11 @@ class CopropietarioService {
     }
 
     // Generar reporte en PDF del resumen de importación masiva (RF-2.1)
-    generarPdfResumenImportacion(resultados) {
+    generarPdfResumenImportacion(resumen) {
         return new Promise((resolve) => {
+            const resultados = resumen.importados || [];
+            const errores = resumen.errores || [];
+            const advertencias = resumen.advertencias || [];
             const doc = new PDFDocument({ margin: 40 });
             let buffers = [];
             doc.on('data', buffers.push.bind(buffers));
@@ -271,7 +288,9 @@ class CopropietarioService {
             doc.fillColor('#059669').fontSize(20).text('AliGest - Resumen de Importación de Copropietarios', { align: 'center' });
             doc.moveDown();
             doc.fillColor('#374151').fontSize(11).text(`Fecha de procesamiento: ${new Date().toLocaleString()}`);
-            doc.text(`Total de registros cargados con éxito: ${resultados.length}`);
+            doc.text(`Total procesados: ${resumen.totalProcesados ?? resultados.length}`);
+            doc.text(`Registros exitosos: ${resultados.length}`);
+            doc.text(`Registros con errores: ${errores.length}`);
             doc.moveDown();
 
             doc.fontSize(12).fillColor('#111827').text('Credenciales temporales de acceso para residentes:', { underline: true });
@@ -283,6 +302,22 @@ class CopropietarioService {
                 doc.fillColor('#2563eb').text(`   Usuario de acceso: ${res.username} | Contraseña temporal: ${res.passwordTemporal}`);
                 doc.moveDown(0.6);
             });
+
+            if (errores.length > 0) {
+                doc.addPage();
+                doc.fontSize(12).fillColor('#b91c1c').text('Registros con errores:', { underline: true });
+                doc.moveDown(0.5);
+                errores.forEach(error => {
+                    doc.fontSize(9).fillColor('#374151').text(`Fila ${error.fila}: ${error.mensaje}`);
+                    doc.moveDown(0.4);
+                });
+            }
+
+            if (advertencias.length > 0) {
+                doc.moveDown();
+                doc.fontSize(11).fillColor('#b45309').text('Advertencias:', { underline: true });
+                advertencias.forEach(aviso => doc.fontSize(9).text(`• ${aviso}`));
+            }
 
             doc.end();
         });
@@ -302,12 +337,12 @@ class CopropietarioService {
             throw new Error(`La casa/villa ${copro.casa} ya está asignada a otro copropietario.`);
         }
 
-        const existeEmail = await copropietarioRepository.findByEmail(copro.email);
+        const existeEmail = await usuarioRepository.findByEmail(copro.email);
         if (existeEmail) {
             throw new Error(`El correo electrónico ${copro.email} ya está registrado.`);
         }
 
-        const username = copro.casa.replace(/\s+/g, '').toLowerCase();
+        const username = copro.casa.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
         const existeUsuario = await usuarioRepository.findByUsername(username);
         if (existeUsuario) {
             throw new Error(`El nombre de usuario '${username}' (generado de la casa) ya existe.`);
@@ -319,12 +354,14 @@ class CopropietarioService {
 
         // Crear el perfil de usuario copropietario (mustChangePassword = 1)
         const createdUser = await usuarioRepository.create(username, copro.email, hashed, 'COPROPIETARIO', 1);
-
         copro.usuarioId = createdUser.id;
 
-        // Guardar en la tabla de copropietarios
-        const coproId = await copropietarioRepository.create(copro);
-        copro.id = coproId;
+        try {
+            copro.id = await copropietarioRepository.create(copro);
+        } catch (error) {
+            await usuarioRepository.delete(createdUser.id);
+            throw error;
+        }
 
         return {
             id: copro.id,

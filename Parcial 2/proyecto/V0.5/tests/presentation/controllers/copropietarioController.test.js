@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../../../app');
 const { Copropietario, Usuario, Pago } = require('../../../config/database');
+const sessionRepository = require('../../../src/data/repositories/sessionRepository');
 
 describe('CopropietarioController Integration Tests', () => {
     let adminTokenHeaders;
@@ -18,10 +19,7 @@ describe('CopropietarioController Integration Tests', () => {
             status: 'ACTIVO'
         });
 
-        adminTokenHeaders = {
-            'x-user-role': 'ADMINISTRADOR',
-            'x-user-id': admin._id.toString()
-        };
+        adminTokenHeaders = { 'x-session-id': await sessionRepository.create(admin._id.toString()) };
 
         // Registrar copropietario mock
         const userCopro = await Usuario.create({
@@ -46,10 +44,7 @@ describe('CopropietarioController Integration Tests', () => {
 
         coproId = coproDoc._id.toString();
 
-        coproTokenHeaders = {
-            'x-user-role': 'COPROPIETARIO',
-            'x-user-id': userCopro._id.toString()
-        };
+        coproTokenHeaders = { 'x-session-id': await sessionRepository.create(userCopro._id.toString()) };
     });
 
     test('GET /api/copropietarios - Debería retornar todos los copropietarios si está autenticado', async () => {
@@ -82,6 +77,20 @@ describe('CopropietarioController Integration Tests', () => {
         expect(response.body[0].nombre).toBe('Maria Gomez');
     });
 
+    test('RF-2.2: un copropietario no puede consultar la nómina y /me devuelve solo su ficha', async () => {
+        const nomina = await request(app)
+            .get('/api/copropietarios')
+            .set(coproTokenHeaders);
+        expect(nomina.status).toBe(403);
+
+        const propio = await request(app)
+            .get('/api/copropietarios/me')
+            .set(coproTokenHeaders);
+        expect(propio.status).toBe(200);
+        expect(propio.body.nombre).toBe('Juan Perez');
+        expect(propio.body.usuario_id).toBe(usuarioId);
+    });
+
     test('DELETE /api/copropietarios/:id - Debería denegar con 202 y advertencia si tiene historial de pagos sin confirmar', async () => {
         // Añadir historial de pagos
         await Pago.create({
@@ -99,7 +108,7 @@ describe('CopropietarioController Integration Tests', () => {
 
         expect(response.status).toBe(202);
         expect(response.body.advertencia).toBe('HISTORIAL_ACTIVO');
-        expect(response.body.mensaje).toContain("historial de pagos registrado");
+        expect(response.body.mensaje).toContain("historial financiero se conservará");
     });
 
     test('DELETE /api/copropietarios/:id - Debería borrar con 200 si se confirma con el parámetro confirmar=true', async () => {

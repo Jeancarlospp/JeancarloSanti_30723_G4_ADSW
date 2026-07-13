@@ -36,11 +36,17 @@ function subirComprobante(req, res, next) {
 // Copropietario reporta un pago realizado (RF-3.1: con comprobante de imagen obligatorio)
 router.post('/registrar', verificarSesion, permitirSolo('COPROPIETARIO'), subirComprobante, async (req, res) => {
     try {
-        const { comprobanteId, monto, metodo, periodo } = req.body;
+        const { comprobanteId, monto, metodo, periodo, fechaPago } = req.body;
         const usuarioId = req.user.id; // Obtenido del middleware verificarSesion
 
         if (!req.file) {
             return res.status(400).json({ error: "Debe adjuntar la foto del comprobante bancario (JPG, JPEG o PNG, máximo 5MB)." });
+        }
+
+        const esJpegReal = req.file.buffer.length >= 3 && req.file.buffer[0] === 0xff && req.file.buffer[1] === 0xd8 && req.file.buffer[2] === 0xff;
+        const esPngReal = req.file.buffer.length >= 8 && req.file.buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+        if (!esJpegReal && !esPngReal) {
+            return res.status(400).json({ error: "El contenido del archivo no corresponde a una imagen JPG, JPEG o PNG válida." });
         }
 
         const comprobanteImg = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -51,7 +57,8 @@ router.post('/registrar', verificarSesion, permitirSolo('COPROPIETARIO'), subirC
             parseFloat(monto),
             metodo,
             periodo,
-            comprobanteImg
+            comprobanteImg,
+            fechaPago
         );
 
         res.status(200).json(result);
@@ -77,7 +84,25 @@ router.get('/pendientes', verificarSesion, permitirSolo('ADMINISTRADOR'), async 
         const list = await corePagoService.obtenerPagosPendientes();
         res.status(200).json(list);
     } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.get('/notificaciones', verificarSesion, permitirSolo('ADMINISTRADOR'), async (req, res) => {
+    try {
+        res.status(200).json(await corePagoService.obtenerRegistroNotificaciones());
+    } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// RF-3.2/RF-3.3: detalle completo para revisar comprobante, deudas y mora.
+router.get('/:id/revision', verificarSesion, permitirSolo('ADMINISTRADOR'), async (req, res) => {
+    try {
+        const detalle = await corePagoService.obtenerDetalleValidacion(req.params.id);
+        res.status(200).json(detalle);
+    } catch (err) {
+        res.status(err.statusCode || 400).json({ error: err.message });
     }
 });
 
@@ -114,7 +139,7 @@ router.get('/reportes', verificarSesion, async (req, res) => {
         const list = await corePagoService.obtenerReportePagos(req.query, req.user);
         res.status(200).json(list);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 });
 
@@ -126,7 +151,7 @@ router.get('/reportes/pdf', verificarSesion, async (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename=reporte_pagos.pdf');
         res.send(pdfBuffer);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 });
 
@@ -156,13 +181,13 @@ router.get('/copropietario/deudas', verificarSesion, permitirSolo('COPROPIETARIO
 router.get('/recibo/:reciboId', verificarSesion, async (req, res) => {
     try {
         const { reciboId } = req.params;
-        const pdfBuffer = await corePagoService.generarPdfRecibo(reciboId);
+        const pdfBuffer = await corePagoService.generarPdfRecibo(reciboId, req.user);
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=recibo_${reciboId}.pdf`);
         res.send(pdfBuffer);
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        res.status(err.statusCode || 400).json({ error: err.message });
     }
 });
 

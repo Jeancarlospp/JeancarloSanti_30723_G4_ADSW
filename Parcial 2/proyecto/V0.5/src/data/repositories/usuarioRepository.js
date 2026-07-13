@@ -1,4 +1,4 @@
-const { Usuario } = require('../../../config/database');
+const { Usuario, Copropietario } = require('../../../config/database');
 
 function mapDocument(doc) {
     if (!doc) return null;
@@ -25,7 +25,15 @@ class UsuarioRepository {
 
     async findAll() {
         const users = await Usuario.find({}, 'username email role status');
-        return users.map(mapDocument);
+        return await Promise.all(users.map(async (user) => {
+            const mapped = mapDocument(user);
+            const copro = await Copropietario.findOne({ usuario_id: user._id, is_deleted: 0 }, 'nombre casa');
+            return {
+                ...mapped,
+                nombre: copro ? copro.nombre : '',
+                casa: copro ? copro.casa : ''
+            };
+        }));
     }
 
     async create(username, email, hashedPassword, role, mustChangePassword = 0) {
@@ -43,7 +51,26 @@ class UsuarioRepository {
     async updateRecoveryCode(username, code, expirationIso) {
         const res = await Usuario.updateOne({ username }, {
             recovery_code: code,
-            recovery_code_expires_at: expirationIso
+            recovery_code_expires_at: expirationIso,
+            recovery_attempts: 0
+        });
+        return res.modifiedCount;
+    }
+
+    async incrementRecoveryAttempts(username) {
+        const user = await Usuario.findOneAndUpdate(
+            { username },
+            { $inc: { recovery_attempts: 1 } },
+            { returnDocument: 'after' }
+        );
+        return user ? user.recovery_attempts : 0;
+    }
+
+    async clearRecoveryCode(username) {
+        const res = await Usuario.updateOne({ username }, {
+            recovery_code: null,
+            recovery_code_expires_at: null,
+            recovery_attempts: 0
         });
         return res.modifiedCount;
     }
@@ -53,6 +80,7 @@ class UsuarioRepository {
             password: hashedPassword,
             recovery_code: null,
             recovery_code_expires_at: null,
+            recovery_attempts: 0,
             failed_attempts: 0,
             status: 'ACTIVO',
             lockout_until: null
@@ -103,6 +131,11 @@ class UsuarioRepository {
 
     async updatePerfil(id, role, status) {
         const res = await Usuario.updateOne({ _id: id }, { role, status });
+        return res.modifiedCount;
+    }
+
+    async updateEmail(id, email) {
+        const res = await Usuario.updateOne({ _id: id }, { email });
         return res.modifiedCount;
     }
 

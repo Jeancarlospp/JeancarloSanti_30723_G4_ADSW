@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const usuarioRepository = require('../../../data/repositories/usuarioRepository');
+const sessionRepository = require('../../../data/repositories/sessionRepository');
 const Usuario = require('../../domain/models/Usuario');
 
 class AuthService {
@@ -31,6 +32,10 @@ class AuthService {
             throw new Error("El usuario y la contraseña son obligatorios.");
         }
 
+        if (!/^[a-zA-Z0-9]{3,20}$/.test(username)) {
+            throw new Error("El nombre de usuario debe ser alfanumérico y tener entre 3 y 20 caracteres.");
+        }
+
         const user = await usuarioRepository.findByUsername(username);
         if (!user) {
             throw new Error("Nombre de usuario o contraseña incorrectos. Intente nuevamente.");
@@ -40,10 +45,21 @@ class AuthService {
         const domainUser = new Usuario(user);
         
         if (domainUser.esBloqueado()) {
+            if (!user.lockout_until) {
+                throw new Error("Cuenta bloqueada por el Administrador. Contacte al Administrador para recuperar el acceso.");
+            }
             const limite = new Date(user.lockout_until);
             const ahora = new Date();
             const minRestantes = Math.ceil((limite - ahora) / (1000 * 60));
             throw new Error(`Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente en ${minRestantes} minutos o recupere su contraseña.`);
+        }
+
+        // Liberar automáticamente un bloqueo temporal cuyo plazo ya terminó.
+        if (user.status === 'BLOQUEADO' && user.lockout_until && new Date(user.lockout_until) <= new Date()) {
+            await usuarioRepository.resetFailedAttempts(username);
+            user.status = 'ACTIVO';
+            user.failed_attempts = 0;
+            user.lockout_until = null;
         }
 
         const valid = await bcrypt.compare(password, user.password);
@@ -56,6 +72,7 @@ class AuthService {
                 // Bloqueo temporal por 15 minutos exactos (RNF-01)
                 const lockoutTime = new Date(Date.now() + 15 * 60 * 1000).toISOString();
                 await usuarioRepository.lockoutUser(username, lockoutTime);
+                await sessionRepository.invalidateUserSessions(user.id);
                 throw new Error("Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente en 15 minutos o recupere su contraseña.");
             } else {
                 const intentosRestantes = 3 - updatedUser.failed_attempts;
@@ -66,12 +83,16 @@ class AuthService {
         // Login exitoso: limpiar intentos fallidos y fechas de bloqueo
         await usuarioRepository.resetFailedAttempts(username);
 
-        return { id: user.id, username: user.username, email: user.email, role: user.role, mustChangePassword: user.must_change_password === 1 };
+        const sessionId = await sessionRepository.create(user.id);
+        return { id: user.id, username: user.username, email: user.email, role: user.role, mustChangePassword: user.must_change_password === 1, sessionId };
     }
 
     async generarCodigoRecuperacion(email) {
         if (!email) {
             throw new Error("El correo electrónico es obligatorio para recuperar contraseña.");
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            throw new Error("El correo electrónico no tiene un formato válido.");
         }
 
         const user = await usuarioRepository.findByEmail(email);
@@ -98,7 +119,11 @@ class AuthService {
         console.log(`Este código expira en 10 minutos (${fechaExpiracion.toLocaleTimeString()}).`);
         console.log(`======================================================\n`);
 
-        return { mensaje: "Código enviado correctamente.", codigoSimulado: codigo, username: user.username };
+        const respuesta = { mensaje: "Código enviado correctamente al correo registrado.", username: user.username };
+        if (process.env.NODE_ENV === 'test' || process.env.EMAIL_SIMULATOR === 'true') {
+            respuesta.codigoSimulado = codigo;
+        }
+        return respuesta;
     }
 
     async recuperarContrasena(username, codigo, nuevaContrasena) {
@@ -112,7 +137,12 @@ class AuthService {
         }
 
         if (!user.recovery_code || user.recovery_code !== codigo) {
-            throw new Error("Código de verificación incorrecto.");
+            const intentos = await usuarioRepository.incrementRecoveryAttempts(username);
+            if (intentos >= 3) {
+                await usuarioRepository.clearRecoveryCode(username);
+                throw new Error("Código de verificación incorrecto. Se agotaron los 3 intentos; solicite un nuevo código.");
+            }
+            throw new Error(`Código de verificación incorrecto. Verifique e intente nuevamente. Intentos restantes: ${3 - intentos}.`);
         }
 
         const ahora = new Date();
@@ -128,6 +158,7 @@ class AuthService {
         // Encriptar y guardar contraseña
         const hashedPassword = await bcrypt.hash(nuevaContrasena, 12);
         await usuarioRepository.updatePasswordAndClearRecovery(username, hashedPassword);
+        await sessionRepository.invalidateUserSessions(user.id);
 
         return { mensaje: "Contraseña restablecida correctamente." };
     }

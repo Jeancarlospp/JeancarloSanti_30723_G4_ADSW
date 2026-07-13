@@ -29,6 +29,15 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'src/presentation/views/dashboard.html'));
 });
 
+app.get('/api/health', (req, res) => {
+    const conectado = db.Usuario.db.readyState === 1;
+    res.status(conectado ? 200 : 503).json({
+        servicio: 'AliGest',
+        estado: conectado ? 'DISPONIBLE' : 'SIN_BASE_DE_DATOS',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Manejador global para rutas inexistentes
 app.use((req, res) => {
     res.status(404).send(`<h3>Error 404: La ruta [${req.method} ${req.url}] no está configurada en el servidor de AliGest.</h3>`);
@@ -46,17 +55,22 @@ const inicializarDatos = async () => {
         }
     } catch (error) {
         console.error("✘ ERROR al conectar e inicializar base de datos:", error.message);
+        throw error;
     }
 };
 if (process.env.NODE_ENV !== 'test') {
-    inicializarDatos();
-
-    const PORT = 3000;
-    app.listen(PORT, () => {
-        console.log(`====================================================`);
-        console.log(` Servidor de AliGest inicializado en puerto ${PORT}`);
-        console.log(` Portal Visual Interactivo: http://localhost:3000`);
-        console.log(`====================================================`);
+    (async () => {
+        await inicializarDatos();
+        const PORT = parseInt(process.env.PORT || '3000', 10);
+        app.listen(PORT, () => {
+            console.log(`====================================================`);
+            console.log(` Servidor de AliGest inicializado en puerto ${PORT}`);
+            console.log(` Portal Visual Interactivo: http://localhost:${PORT}`);
+            console.log(`====================================================`);
+        });
+    })().catch(error => {
+        console.error(`AliGest no pudo iniciar: ${error.message}`);
+        process.exitCode = 1;
     });
 }
 
