@@ -327,8 +327,8 @@
                         </div>
 
                         <form id="excelForm" onsubmit="ejecutarImportacionExcel(event)" class="space-y-4">
-                            <div class="border-2 border-dashed border-slate-300 hover:border-[#0a4a82] rounded-2xl p-8 text-center cursor-pointer transition bg-slate-50">
-                                <input type="file" id="excelFile" accept=".xlsx, .xls" required class="absolute inset-0 opacity-0 w-full cursor-pointer">
+                            <label for="excelFile" class="block border-2 border-dashed border-slate-300 hover:border-[#0a4a82] rounded-2xl p-8 text-center cursor-pointer transition bg-slate-50">
+                                <input type="file" id="excelFile" name="file" accept=".xlsx,.xls" required class="sr-only">
                                 <div class="flex flex-col items-center space-y-2">
                                     <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                                     <span class="text-slate-500 text-xs block">Arrastra o selecciona el archivo Excel de origen (.xlsx, .xls)</span>
@@ -628,7 +628,7 @@
                                     <label class="block text-slate-500 font-bold uppercase tracking-wider text-[9px]">Período que Corresponde</label>
                                     <input type="month" id="pagoPeriodo" required class="input-premium w-full rounded-xl px-4 py-2.5 text-slate-600 focus:outline-none">
                                 </div>
-                            </div>
+                            </label>
 
                             <div class="space-y-1">
                                 <label class="block text-slate-500 font-bold uppercase tracking-wider text-[9px]">Fecha en que realizó el pago</label>
@@ -1643,7 +1643,12 @@
             resultBox.classList.add('hidden');
 
             const file = fileInput.files[0];
-            if (!file) return;
+            if (!file) {
+                resultBox.className = "p-4 rounded-xl border bg-rose-50 border-rose-200 text-rose-600 space-y-3";
+                resultText.innerText = 'Seleccione un archivo Excel antes de procesar la importación.';
+                resultBox.classList.remove('hidden');
+                return;
+            }
 
             const formData = new FormData();
             formData.append('file', file);
@@ -1676,7 +1681,9 @@
                     resultBox.classList.remove('hidden');
                 }
             } catch (err) {
-                alert("Error al cargar archivo.");
+                resultBox.className = "p-4 rounded-xl border bg-rose-50 border-rose-200 text-rose-600 space-y-3";
+                resultText.innerText = `Error al cargar el archivo: ${err.message || 'No fue posible comunicarse con el servidor.'}`;
+                resultBox.classList.remove('hidden');
             } finally {
                 submitButton.disabled = false;
                 submitButton.innerText = 'Procesar y Validar Lote Excel';

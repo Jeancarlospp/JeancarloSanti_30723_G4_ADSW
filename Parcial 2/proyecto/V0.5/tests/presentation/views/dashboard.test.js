@@ -19,4 +19,12 @@ describe('Dashboard - enlaces de acciones con ObjectId', () => {
         expect(html).toContain('id="evidenceDebtBreakdown"');
         expect(html).toContain('/revision`');
     });
+
+    test('el selector Excel no se superpone al botón de importación', () => {
+        expect(html).toContain('<label for="excelFile"');
+        expect(html).toContain('id="excelFile" name="file"');
+        expect(html).toContain('class="sr-only"');
+        expect(html).not.toContain('id="excelFile" accept=".xlsx, .xls" required class="absolute inset-0');
+        expect(html).toContain('id="importSubmitButton" type="submit"');
+    });
 });
