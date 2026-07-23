@@ -5,6 +5,86 @@ const { CalculadorMoraContext, EcuandorianMora12Strategy } = require('../pattern
 const notificationService = require('./NotificationService');
 const Pago = require('../../domain/models/Pago');
 
+// Paleta de marca compartida por todos los documentos PDF generados (coherente
+// con los colores corporativos usados en login.html / dashboard.html).
+const MARCA = {
+    navy: '#0a3d62',
+    navyDark: '#072a44',
+    green: '#2f7d3a',
+    greenLight: '#e8f5e9',
+    amber: '#b45309',
+    amberLight: '#fef3c7',
+    rose: '#b91c1c',
+    roseLight: '#fee2e2',
+    slate: '#334155',
+    slateLight: '#f1f5f9',
+    border: '#cbd5e1',
+    muted: '#64748b'
+};
+
+// Franja de encabezado corporativa reutilizada en todos los PDF de pagos.
+function dibujarEncabezado(doc, titulo, subtitulo) {
+    const width = doc.page.width;
+    doc.rect(0, 0, width, 86).fill(MARCA.navy);
+    doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold').text('ALIGEST', 40, 24);
+    doc.fontSize(9).font('Helvetica').fillColor('#cbd5e1').text('Condominio La Primavera · Gestión de Expensas', 40, 46);
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#ffffff').text(titulo, 0, 24, { align: 'right', width: width - 40 });
+    if (subtitulo) {
+        doc.fontSize(9).font('Helvetica').fillColor('#cbd5e1').text(subtitulo, 0, 46, { align: 'right', width: width - 40 });
+    }
+    doc.fontSize(8).fillColor('#9fb8d6').text(`Generado: ${new Date().toLocaleString('es-EC')}`, 0, 62, { align: 'right', width: width - 40 });
+    doc.fillColor(MARCA.slate).font('Helvetica');
+    doc.y = 106;
+}
+
+// Pie de página con numeración, repetido en cada hoja del documento. El pie se
+// dibuja dentro del margen inferior reservado por PDFDocument, así que el
+// margen se anula temporalmente: si no, PDFKit interpreta que el cursor quedó
+// fuera del área imprimible y dispara una página nueva en cadena (bucle infinito).
+function dibujarPiePagina(doc, nota = 'Documento generado automáticamente por AliGest. La información financiera aquí contenida es confidencial.') {
+    const margenOriginal = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+    const bottom = doc.page.height - 34;
+    // PDFPage no expone un número de página propio; se calcula a partir del
+    // buffer de páginas del documento (1-based).
+    const { start, count } = doc.bufferedPageRange();
+    const numeroPagina = start + count;
+    doc.fontSize(7).fillColor('#94a3b8')
+        .text(nota, 40, bottom, { width: doc.page.width - 160, align: 'left', lineBreak: false })
+        .text(`Página ${numeroPagina}`, doc.page.width - 100, bottom, { width: 60, align: 'right', lineBreak: false });
+    doc.fillColor(MARCA.slate);
+    doc.page.margins.bottom = margenOriginal;
+}
+
+// Etiqueta de estado con color acorde (Aprobado/Pendiente/Rechazado).
+function colorEstado(estado) {
+    if (estado === 'APROBADO') return { bg: MARCA.greenLight, fg: MARCA.green };
+    if (estado === 'RECHAZADO') return { bg: MARCA.roseLight, fg: MARCA.rose };
+    return { bg: MARCA.amberLight, fg: MARCA.amber };
+}
+
+function dibujarPildora(doc, texto, x, y, opts = {}) {
+    const { bg, fg } = colorEstado(opts.estado || texto);
+    const width = opts.width || (doc.widthOfString(texto, { fontSize: 8 }) + 16);
+    doc.roundedRect(x, y - 2, width, 14, 6).fill(bg);
+    doc.fontSize(8).font('Helvetica-Bold').fillColor(fg).text(texto, x, y + 1, { width, align: 'center' });
+    doc.font('Helvetica').fillColor(MARCA.slate);
+}
+
+// Verifica si queda espacio para otra fila antes del pie de página; si no,
+// cierra la hoja actual con su pie, abre una nueva y vuelve a pintar la
+// cabecera de la tabla. El pie se dibuja aquí explícitamente (nunca desde un
+// listener de 'pageAdded') para que cada página reciba exactamente un pie.
+function asegurarEspacio(doc, alturaFila, redibujarCabecera, notaPie) {
+    const limite = doc.page.height - 60;
+    if (doc.y + alturaFila > limite) {
+        dibujarPiePagina(doc, notaPie);
+        doc.addPage();
+        doc.y = 40;
+        if (redibujarCabecera) redibujarCabecera();
+    }
+}
+
 // RF-3.3/RF-3.4: la expensa de un período vence el día 5 del mes siguiente
 function calcularVencimientoExpensa(periodo) {
     const [anioStr, mesStr] = periodo.split('-');
@@ -406,42 +486,76 @@ class PagoService {
         return new Promise((resolve) => {
             const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
             const buffers = [];
-
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-            doc.fillColor('#1e3a8a').fontSize(22).text('ALIGEST CONDOMINIOS', { align: 'center', underline: true });
-            doc.fillColor('#475569').fontSize(12).text('Reporte Financiero de Pagos y Estados de Cuenta', { align: 'center' });
-            doc.moveDown(1);
-            doc.fontSize(10).fillColor('#334155');
-            doc.text(`Generado: ${new Date().toLocaleString()}`);
-            doc.text(`Registros encontrados: ${listado.length}`);
-            doc.moveDown(1);
+            const cols = [
+                { key: 'copropietario_nombre', label: 'Residente', x: 40, w: 130 },
+                { key: 'copropietario_casa', label: 'Villa', x: 170, w: 60 },
+                { key: 'comprobante_id', label: 'Referencia', x: 230, w: 110 },
+                { key: 'periodo', label: 'Periodo', x: 340, w: 60 },
+                { key: 'fecha', label: 'Fecha', x: 400, w: 90 },
+                { key: 'monto', label: 'Monto', x: 490, w: 80, align: 'right' },
+                { key: 'estado', label: 'Estado', x: 590, w: 100 }
+            ];
 
-            doc.fontSize(9).fillColor('#0f172a');
-            doc.text('Residente', 40, doc.y, { width: 120 });
-            doc.text('Villa', 160, doc.y, { width: 70 });
-            doc.text('Referencia', 230, doc.y, { width: 110 });
-            doc.text('Periodo', 340, doc.y, { width: 70 });
-            doc.text('Fecha', 410, doc.y, { width: 110 });
-            doc.text('Monto', 520, doc.y, { width: 70, align: 'right' });
-            doc.text('Estado', 590, doc.y, { width: 90 });
-            doc.moveDown(0.7);
-            doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(40, doc.y).lineTo(680, doc.y).stroke();
-            doc.moveDown(0.6);
+            const dibujarCabeceraTabla = () => {
+                // doc.text() avanza doc.y en cada llamada: se fija la fila en una
+                // variable antes del forEach para que las columnas queden alineadas
+                // en vez de "escalonarse" hacia abajo una tras otra.
+                const filaY = doc.y;
+                doc.rect(40, filaY, 660, 24).fill(MARCA.slateLight);
+                doc.fontSize(9).font('Helvetica-Bold').fillColor(MARCA.navy);
+                cols.forEach(c => doc.text(c.label, c.x, filaY + 7, { width: c.w, align: c.align || 'left' }));
+                doc.y = filaY + 24;
+                doc.font('Helvetica').fillColor(MARCA.slate);
+            };
 
-            listado.forEach((row) => {
-                doc.fillColor('#334155').fontSize(8);
-                doc.text(String(row.copropietario_nombre || '').substring(0, 18), 40, doc.y, { width: 120 });
-                doc.text(String(row.copropietario_casa || ''), 160, doc.y, { width: 70 });
-                doc.text(String(row.comprobante_id || ''), 230, doc.y, { width: 110 });
-                doc.text(String(row.periodo || 'N/A'), 340, doc.y, { width: 70 });
-                doc.text(row.fecha_pago || new Date(row.fecha_registro).toLocaleDateString(), 410, doc.y, { width: 110 });
-                doc.text(`$${parseFloat(row.monto_pagado).toFixed(2)}`, 520, doc.y, { width: 70, align: 'right' });
-                doc.text(String(row.estado || ''), 590, doc.y, { width: 90 });
-                doc.moveDown(0.9);
+            dibujarEncabezado(doc, 'Reporte Financiero de Pagos', `${listado.length} registro(s) encontrado(s)`);
+
+            if (userContext?.role) {
+                doc.fontSize(8).fillColor(MARCA.muted).text(
+                    `Ámbito: ${userContext.role === 'ADMINISTRADOR' ? 'Todos los residentes' : 'Mis pagos únicamente'}`,
+                    40, doc.y
+                );
+                doc.moveDown(0.8);
+            }
+
+            if (listado.length === 0) {
+                doc.moveDown(2);
+                doc.fontSize(11).fillColor(MARCA.muted).text('No se encontraron pagos con los filtros seleccionados.', { align: 'center' });
+                dibujarPiePagina(doc);
+                doc.end();
+                return;
+            }
+
+            dibujarCabeceraTabla();
+
+            listado.forEach((row, i) => {
+                asegurarEspacio(doc, 22, dibujarCabeceraTabla);
+                const rowY = doc.y;
+                if (i % 2 === 0) doc.rect(40, rowY, 660, 22).fill('#f8fafc');
+                doc.fillColor(MARCA.slate).fontSize(8).font('Helvetica');
+                doc.text(String(row.copropietario_nombre || '').substring(0, 22), 40, rowY + 6, { width: 130 });
+                doc.text(String(row.copropietario_casa || ''), 170, rowY + 6, { width: 60 });
+                doc.text(String(row.comprobante_id || ''), 230, rowY + 6, { width: 110 });
+                doc.text(String(row.periodo || 'N/A'), 340, rowY + 6, { width: 60 });
+                doc.text(row.fecha_pago || new Date(row.fecha_registro).toLocaleDateString(), 400, rowY + 6, { width: 90 });
+                doc.font('Helvetica-Bold').text(`$${parseFloat(row.monto_pagado).toFixed(2)}`, 490, rowY + 6, { width: 80, align: 'right' });
+                doc.font('Helvetica');
+                dibujarPildora(doc, row.estado === 'PENDIENTE_VALIDACION' ? 'PENDIENTE' : String(row.estado || ''), 590, rowY + 5, { estado: row.estado, width: 90 });
+                doc.y = rowY + 22;
             });
 
+            const total = listado.reduce((acc, r) => acc + parseFloat(r.monto_pagado || 0), 0);
+            asegurarEspacio(doc, 30, dibujarCabeceraTabla);
+            doc.moveDown(0.4);
+            doc.strokeColor(MARCA.border).lineWidth(1).moveTo(40, doc.y).lineTo(700, doc.y).stroke();
+            doc.moveDown(0.4);
+            doc.font('Helvetica-Bold').fontSize(10).fillColor(MARCA.navy)
+                .text(`Total del reporte: $${total.toFixed(2)}`, 40, doc.y, { width: 660, align: 'right' });
+
+            dibujarPiePagina(doc);
             doc.end();
         });
     }
@@ -476,69 +590,106 @@ class PagoService {
                 doc.on('end', () => resolve(Buffer.concat(buffers)));
                 doc.on('error', reject);
 
-            // Título Principal
-            doc.fillColor('#1e3a8a').fontSize(24).text('RECIBO DIGITAL DE PAGO', { align: 'center', bold: true });
-            doc.fillColor('#64748b').fontSize(10).text('AliGest Condominios - Inmutable', { align: 'center' });
-            doc.moveDown(2);
+                dibujarEncabezado(doc, 'Recibo Digital de Pago', 'Documento inmutable de amortización');
 
-            // Detalles del Comprobante
-            doc.fillColor('#0f172a').fontSize(12).text(`Código del Recibo: ${pago.recibo_id}`, { bold: true });
-            doc.fontSize(10).fillColor('#334155');
-            doc.text(`Fecha de Registro: ${new Date(pago.fecha_registro).toLocaleString()}`);
-            doc.text(`Referencia Bancaria: ${pago.comprobante_id}`);
-            doc.text(`Método de Pago: ${pago.metodo}`);
-            doc.text(`Período Declarado: ${pago.periodo || 'N/A'}`);
-            doc.moveDown();
+                // Franja con el código de recibo y estado, a modo de "ticket".
+                const ticketY = doc.y;
+                doc.roundedRect(40, ticketY, 515, 40, 6).fill(MARCA.slateLight);
+                doc.fontSize(8).fillColor(MARCA.muted).text('CÓDIGO DE RECIBO', 54, ticketY + 8);
+                doc.fontSize(14).font('Helvetica-Bold').fillColor(MARCA.navy).text(pago.recibo_id, 54, ticketY + 20);
+                doc.font('Helvetica');
+                dibujarPildora(doc, pago.estado, 470, ticketY + 13, { estado: pago.estado, width: 75 });
+                doc.y = ticketY + 40;
+                doc.moveDown(1.4);
 
-            // Datos del Residente
-            doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(40, doc.y).lineTo(550, doc.y).stroke();
-            doc.moveDown();
-            doc.fontSize(12).fillColor('#0f172a').text('Datos del Residentes:', { bold: true });
-            doc.fontSize(10).fillColor('#334155');
-            doc.text(`Nombre Completo: ${pago.copropietario_nombre}`);
-            doc.text(`Cédula: ${pago.copropietario_cedula}`);
-            doc.text(`Villa / Casa: ${pago.copropietario_casa}`);
-            doc.text(`Celular: ${pago.copropietario_telefono}`);
-            doc.moveDown();
-
-            // Desglose de Montos
-            doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(40, doc.y).lineTo(550, doc.y).stroke();
-            doc.moveDown();
-            doc.fontSize(12).fillColor('#0f172a').text('Detalle de Liquidación:', { bold: true });
-            doc.moveDown(0.5);
-
-            // Fila de Monto
-            doc.fontSize(10).fillColor('#334155');
-            doc.text('Monto Recibido:', 40, doc.y);
-            doc.text(`$${parseFloat(pago.monto_pagado).toFixed(2)}`, 450, doc.y, { align: 'right' });
-            doc.moveDown();
-
-            doc.text('Recargo por mora aplicado:', 40, doc.y);
-            doc.text(`$${parseFloat(pago.recargo_mora_total || 0).toFixed(2)}`, 450, doc.y, { align: 'right' });
-            doc.moveDown();
-
-            if (pago.aplicaciones && pago.aplicaciones.length > 0) {
-                doc.fontSize(9).fillColor('#0f172a').text('Aplicación FIFO por período:', 40, doc.y, { underline: true });
+                // --- Sección: detalle del comprobante bancario ---
+                doc.fontSize(11).font('Helvetica-Bold').fillColor(MARCA.navy).text('Detalle del Comprobante');
                 doc.moveDown(0.4);
-                pago.aplicaciones.forEach(aplicacion => {
-                    doc.fillColor('#334155').text(
-                        `${aplicacion.periodo}: pendiente $${parseFloat(aplicacion.monto_pendiente).toFixed(2)} + mora $${parseFloat(aplicacion.recargo_mora || 0).toFixed(2)} | aplicado $${parseFloat(aplicacion.monto_aplicado).toFixed(2)} | saldo $${parseFloat(aplicacion.saldo_posterior).toFixed(2)}`
-                    );
-                });
-                doc.moveDown();
-            }
+                doc.strokeColor(MARCA.border).lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+                doc.moveDown(0.5);
+                doc.font('Helvetica').fontSize(10).fillColor(MARCA.slate);
+                const filaInfo = (label, valor, x = 40) => {
+                    doc.font('Helvetica-Bold').fillColor(MARCA.muted).fontSize(8).text(label.toUpperCase(), x, doc.y);
+                    doc.font('Helvetica').fillColor(MARCA.slate).fontSize(10).text(valor ?? 'N/A', x, doc.y + 1);
+                };
+                let yBase = doc.y;
+                filaInfo('Fecha de registro', new Date(pago.fecha_registro).toLocaleString('es-EC'));
+                doc.y = yBase; filaInfo('Referencia bancaria', pago.comprobante_id, 300);
+                doc.moveDown(1.3);
+                yBase = doc.y;
+                filaInfo('Método de pago', pago.metodo);
+                doc.y = yBase; filaInfo('Período declarado', pago.periodo || 'N/A', 300);
+                doc.moveDown(1.6);
 
-            if (pago.sobrepago > 0) {
-                doc.fillColor('#059669').text(`Crédito a favor por sobrepago: $${parseFloat(pago.sobrepago).toFixed(2)}`);
-                doc.moveDown();
-            }
+                // --- Sección: datos del residente ---
+                doc.font('Helvetica-Bold').fontSize(11).fillColor(MARCA.navy).text('Datos del Residente');
+                doc.moveDown(0.4);
+                doc.strokeColor(MARCA.border).lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+                doc.moveDown(0.5);
+                yBase = doc.y;
+                filaInfo('Nombre completo', pago.copropietario_nombre);
+                doc.y = yBase; filaInfo('Cédula', pago.copropietario_cedula, 300);
+                doc.moveDown(1.3);
+                yBase = doc.y;
+                filaInfo('Villa / Casa', pago.copropietario_casa);
+                doc.y = yBase; filaInfo('Celular', pago.copropietario_telefono, 300);
+                doc.moveDown(1.6);
 
-            doc.text('Estado de Transacción:', 40, doc.y);
-            doc.fillColor('#10b981').text(pago.estado, 450, doc.y, { align: 'right' });
-            doc.moveDown(2);
+                // --- Sección: liquidación FIFO ---
+                doc.font('Helvetica-Bold').fontSize(11).fillColor(MARCA.navy).text('Detalle de Liquidación (Aplicación FIFO)');
+                doc.moveDown(0.4);
+                doc.strokeColor(MARCA.border).lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+                doc.moveDown(0.5);
 
-            // Pie de Página
-            doc.fillColor('#94a3b8').fontSize(8).text('La información en este recibo está firmada de forma electrónica e inmutable en nuestra base de datos relacional.', { align: 'center' });
+                if (pago.aplicaciones && pago.aplicaciones.length > 0) {
+                    const cabeceraY = doc.y;
+                    doc.rect(40, cabeceraY, 515, 20).fill(MARCA.slateLight);
+                    doc.fontSize(8).font('Helvetica-Bold').fillColor(MARCA.navy);
+                    doc.text('Período', 48, cabeceraY + 6, { width: 70 });
+                    doc.text('Pendiente', 118, cabeceraY + 6, { width: 80, align: 'right' });
+                    doc.text('Mora 12%', 200, cabeceraY + 6, { width: 80, align: 'right' });
+                    doc.text('Aplicado', 300, cabeceraY + 6, { width: 90, align: 'right' });
+                    doc.text('Saldo posterior', 400, cabeceraY + 6, { width: 140, align: 'right' });
+                    doc.y = cabeceraY + 20;
+                    doc.font('Helvetica').fillColor(MARCA.slate);
+
+                    pago.aplicaciones.forEach((aplicacion, i) => {
+                        const rowY = doc.y;
+                        if (i % 2 === 0) doc.rect(40, rowY, 515, 18).fill('#f8fafc');
+                        doc.fillColor(MARCA.slate).fontSize(8.5);
+                        doc.text(aplicacion.periodo, 48, rowY + 5, { width: 70 });
+                        doc.text(`$${parseFloat(aplicacion.monto_pendiente).toFixed(2)}`, 118, rowY + 5, { width: 80, align: 'right' });
+                        doc.text(`$${parseFloat(aplicacion.recargo_mora || 0).toFixed(2)}`, 200, rowY + 5, { width: 80, align: 'right' });
+                        doc.font('Helvetica-Bold').text(`$${parseFloat(aplicacion.monto_aplicado).toFixed(2)}`, 300, rowY + 5, { width: 90, align: 'right' });
+                        doc.font('Helvetica').text(`$${parseFloat(aplicacion.saldo_posterior).toFixed(2)}`, 400, rowY + 5, { width: 140, align: 'right' });
+                        doc.y = rowY + 18;
+                    });
+                    doc.moveDown(0.8);
+                } else {
+                    doc.fontSize(9).fillColor(MARCA.muted).text('No se aplicó el pago contra deudas registradas.');
+                    doc.moveDown(0.8);
+                }
+
+                // --- Resumen financiero destacado ---
+                const resumenY = doc.y;
+                doc.roundedRect(40, resumenY, 515, 74, 6).fillAndStroke(MARCA.slateLight, MARCA.border);
+                doc.fontSize(8).font('Helvetica-Bold').fillColor(MARCA.muted).text('MONTO RECIBIDO', 56, resumenY + 12);
+                doc.fontSize(16).fillColor(MARCA.navy).text(`$${parseFloat(pago.monto_pagado).toFixed(2)}`, 56, resumenY + 26);
+
+                doc.fontSize(8).font('Helvetica-Bold').fillColor(MARCA.muted).text('RECARGO POR MORA', 230, resumenY + 12);
+                doc.fontSize(16).fillColor(MARCA.rose).text(`$${parseFloat(pago.recargo_mora_total || 0).toFixed(2)}`, 230, resumenY + 26);
+
+                doc.fontSize(8).font('Helvetica-Bold').fillColor(MARCA.muted).text(
+                    pago.sobrepago > 0 ? 'CRÉDITO A FAVOR (SOBREPAGO)' : 'SOBREPAGO', 400, resumenY + 12
+                );
+                doc.fontSize(16).fillColor(pago.sobrepago > 0 ? MARCA.green : MARCA.slate)
+                    .text(`$${parseFloat(pago.sobrepago || 0).toFixed(2)}`, 400, resumenY + 26);
+
+                doc.font('Helvetica').fontSize(8).fillColor(MARCA.muted)
+                    .text('Este documento es un comprobante inmutable de la transacción. Cualquier alteración lo invalida.', 56, resumenY + 52, { width: 480 });
+
+                doc.y = resumenY + 74;
+                dibujarPiePagina(doc, 'Recibo digital inmutable emitido por AliGest. Conserve este documento como comprobante de pago.');
 
                 doc.end();
             } catch (error) {

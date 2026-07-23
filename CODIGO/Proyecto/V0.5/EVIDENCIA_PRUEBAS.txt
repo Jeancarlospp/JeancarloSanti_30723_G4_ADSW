@@ -1,0 +1,126 @@
+EVIDENCIA DE EJECUCION DE PRUEBAS UNITARIAS - SISTEMA AliGest
+Fecha: 23/7/2026, 1:03:43 a. m.
+Comando: npx jest --runInBand
+======================================================================
+
+RESUMEN GLOBAL: 17/17 suites  |  86/86 pruebas  |  TODAS PASANDO
+
+[PASSED] tests/core/business/patterns/auditDecorator.test.js  (2/2)
+      OK  AuditPaymentServiceDecorator Debería registrar auditoría de intento de aprobación y éxito
+      OK  AuditPaymentServiceDecorator Debería registrar auditoría de fallo si el servicio base lanza un error
+
+[PASSED] tests/core/business/patterns/excelAdapter.test.js  (4/4)
+      OK  ExcelCopropietarioAdapter Debería mapear correctamente con cabeceras en español
+      OK  ExcelCopropietarioAdapter Debería mapear correctamente con cabeceras alternativas en inglés o simplificadas
+      OK  ExcelCopropietarioAdapter Debería establecer saldo en 0.0 si es inválido o no numérico
+      OK  ExcelCopropietarioAdapter Debería lanzar error si la fila es nula o indefinida
+
+[PASSED] tests/core/business/patterns/moraStrategy.test.js  (4/4)
+      OK  EcuandorianMora12Strategy Debería retornar 0 interés de mora si los días de retraso son menores o iguales a cero
+      OK  EcuandorianMora12Strategy Debería calcular el recargo fijo del 12% sobre el monto adeudado
+      OK  EcuandorianMora12Strategy Debería redondear a 2 decimales el recargo de mora
+      OK  EcuandorianMora12Strategy El recargo del 12% no debe acumularse ni variar según los días de retraso transcurridos
+
+[PASSED] tests/core/business/services/AuthService.test.js  (9/9)
+      OK  AuthService (Integration with MongoDB Memory Server) Debería registrar un usuario de forma pública (rol COPROPIETARIO) con contraseña cifrada
+      OK  AuthService (Integration with MongoDB Memory Server) Debería arrojar error si el nombre de usuario o correo electrónico ya existen al registrar
+      OK  AuthService (Integration with MongoDB Memory Server) Debería iniciar sesión correctamente con credenciales válidas
+      OK  AuthService (Integration with MongoDB Memory Server) Debería bloquear la cuenta por 15 minutos en el tercer intento fallido de inicio de sesión
+      OK  AuthService (Integration with MongoDB Memory Server) Debería generar un código OTP de recuperación de 6 dígitos con vigencia de 10 minutos
+      OK  AuthService (Integration with MongoDB Memory Server) Debería restablecer la contraseña utilizando un código de recuperación válido
+      OK  AuthService (Integration with MongoDB Memory Server) Debería fallar al cambiar clave si el código OTP ha expirado
+      OK  AuthService (Integration with MongoDB Memory Server) RF-1.2: invalida el código después de tres intentos incorrectos
+      OK  AuthService (Integration with MongoDB Memory Server) RNF-01: desbloquea automáticamente la cuenta al cumplirse los 15 minutos
+
+[PASSED] tests/core/business/services/CopropietarioService.test.js  (7/7)
+      OK  CopropietarioService (Integration with MongoDB Memory Server) Debería crear un copropietario manualmente generando su cuenta de usuario
+      OK  CopropietarioService (Integration with MongoDB Memory Server) Debería importar masivamente residentes desde un buffer de Excel válido
+      OK  CopropietarioService (Integration with MongoDB Memory Server) RF-2.1: importa filas válidas y reporta las inválidas sin guardarlas
+      OK  CopropietarioService (Integration with MongoDB Memory Server) Debería actualizar los datos del copropietario correctamente
+      OK  CopropietarioService (Integration with MongoDB Memory Server) RF-2.4: Debería permitir cambiar la cédula (nuevo representante) y regenerar la contraseña temporal
+      OK  CopropietarioService (Integration with MongoDB Memory Server) RF-2.4: No debería permitir cambiar a una cédula ya registrada por otro copropietario
+      OK  CopropietarioService (Integration with MongoDB Memory Server) RF-2.5: el borrado lógico preserva el historial financiero e invalida las credenciales
+
+[PASSED] tests/core/business/services/ExcelImportSample.test.js  (1/1)
+      OK  Importación RF-2.1 aislada genera en memoria 60 filas, crea sus 60 cuentas y permite iniciar sesión
+
+[PASSED] tests/core/business/services/NotificationService.test.js  (3/3)
+      OK  NotificationService RF-04 registra una notificación exitosa con tipo, destinatario, fecha e intentos
+      OK  NotificationService RF-04 registra advertencia si no existe teléfono
+      OK  NotificationService RF-04 reintenta tres veces y conserva el mensaje en cola de pendientes
+
+[PASSED] tests/core/business/services/PagoService.test.js  (10/10)
+      OK  PagoService (Integration with MongoDB Memory Server) Debería reportar un pago correctamente en estado PENDIENTE_VALIDACION
+      OK  PagoService (Integration with MongoDB Memory Server) Debería fallar si el copropietario reporta un pago con monto no positivo
+      OK  PagoService (Integration with MongoDB Memory Server) Debería aplicar amortización FIFO e interés de mora del 12% al aprobar un pago
+      OK  PagoService (Integration with MongoDB Memory Server) RF-3.3: no vuelve a aplicar el recargo del 12% al mismo período
+      OK  PagoService (Integration with MongoDB Memory Server) RNF-02: una reserva atómica impide aprobar dos veces el mismo pago concurrentemente
+      OK  PagoService (Integration with MongoDB Memory Server) Debería rechazar un pago correctamente y notificar al copropietario
+      OK  PagoService (Integration with MongoDB Memory Server) Debería generar la expensa mensual para todos los copropietarios con vencimiento el día 5 del mes siguiente
+      OK  PagoService (Integration with MongoDB Memory Server) No debería duplicar la expensa mensual si ya fue generada para el mismo período
+      OK  PagoService (Integration with MongoDB Memory Server) Debería rechazar un período con formato inválido
+      OK  PagoService (Integration with MongoDB Memory Server) Debería calcular el vencimiento de diciembre pasando correctamente al año siguiente
+
+[PASSED] tests/core/domain/models/Usuario.test.js  (7/7)
+      OK  Usuario Domain Model Debería crear una instancia válida de Usuario
+      OK  Usuario Domain Model Debería fallar si el nombre de usuario tiene menos de 3 o más de 20 caracteres
+      OK  Usuario Domain Model Debería fallar si el correo electrónico es inválido
+      OK  Usuario Domain Model Debería fallar si la contraseña es obligatoria pero no está presente
+      OK  Usuario Domain Model Debería fallar si la contraseña no cumple la complejidad requerida
+      OK  Usuario Domain Model Debería aceptar contraseñas ya hasheadas por bcrypt (saltarse la complejidad)
+      OK  Usuario Domain Model Debería validar el estado de bloqueo
+
+[PASSED] tests/core/domain/valueObjects/Cedula.test.js  (7/7)
+      OK  Cedula Value Object Debería crear una cédula ecuatoriana válida
+      OK  Cedula Value Object Debería limpiar guiones y espacios de la cédula
+      OK  Cedula Value Object Debería fallar si la cédula es nula o vacía
+      OK  Cedula Value Object Debería fallar si no cumple el algoritmo Módulo 10 Ecuatoriano
+      OK  Cedula Value Object Debería fallar si tiene longitud incorrecta
+      OK  Cedula Value Object Debería fallar si tiene un código de provincia inválido
+      OK  Cedula Value Object Debería permitir provincia exterior 30
+
+[PASSED] tests/core/domain/valueObjects/Telefono.test.js  (7/7)
+      OK  Telefono Value Object Debería aceptar formato celular local con 0 inicial (0987654321)
+      OK  Telefono Value Object Debería aceptar formato celular local sin 0 inicial (987654321)
+      OK  Telefono Value Object Debería aceptar formato internacional con prefijo +593 (+593987654321)
+      OK  Telefono Value Object Debería aceptar formato internacional sin signo más (593987654321)
+      OK  Telefono Value Object Debería lanzar error si el número es nulo o vacío
+      OK  Telefono Value Object Debería lanzar error si el formato del número internacional es incorrecto
+      OK  Telefono Value Object Debería lanzar error si no es un celular móvil ecuatoriano válido
+
+[PASSED] tests/data/repositories/sessionRepository.test.js  (3/3)
+      OK  SessionRepository RF-1.1: genera un identificador de sesión aleatorio y carga permisos desde la BD
+      OK  SessionRepository RNF-01: elimina la sesión después de más de dos horas de inactividad
+      OK  SessionRepository RF-1.3: permite invalidar todas las sesiones cuando cambia el perfil
+
+[PASSED] tests/presentation/controllers/authController.test.js  (4/4)
+      OK  AuthController RF-1.1: rechaza el registro público de cuentas
+      OK  AuthController RF-1.3: Configurar promueve un copropietario e invalida su sesión anterior
+      OK  AuthController RF-1.3: el listado incluye nombre y casa del residente vinculado
+      OK  AuthController RF-1.3: no permite degradar al único administrador
+
+[PASSED] tests/presentation/controllers/copropietarioController.test.js  (5/5)
+      OK  CopropietarioController Integration Tests GET /api/copropietarios - Debería retornar todos los copropietarios si está autenticado
+      OK  CopropietarioController Integration Tests GET /api/copropietarios - Debería filtrar residentes por nombre
+      OK  CopropietarioController Integration Tests RF-2.2: un copropietario no puede consultar la nómina y /me devuelve solo su ficha
+      OK  CopropietarioController Integration Tests DELETE /api/copropietarios/:id - Debería denegar con 202 y advertencia si tiene historial de pagos sin confirmar
+      OK  CopropietarioController Integration Tests DELETE /api/copropietarios/:id - Debería borrar con 200 si se confirma con el parámetro confirmar=true
+
+[PASSED] tests/presentation/controllers/pagoController.test.js  (4/4)
+      OK  PagoController - flujo completo de comprobantes RF-3.1/RF-3.2: conserva la imagen y entrega el detalle para revisión administrativa
+      OK  PagoController - flujo completo de comprobantes RF-3.2/RF-3.4: permite aprobar desde la API y genera recibo inmutable
+      OK  PagoController - flujo completo de comprobantes RF-3.2: exige motivo y permite rechazar usando el ObjectId del pago
+      OK  PagoController - flujo completo de comprobantes RNF-04: rechaza un archivo que finge ser PNG pero no contiene una imagen
+
+[PASSED] tests/presentation/middlewares/authMiddleware.test.js  (6/6)
+      OK  Auth Middleware RF-1.1: autoriza una sesión almacenada y carga identidad/rol desde servidor
+      OK  Auth Middleware deniega una solicitud sin session_id aunque intente falsificar rol e id
+      OK  Auth Middleware RNF-01: informa expiración tras dos horas de inactividad
+      OK  Auth Middleware permitirSolo usa el rol autenticado y no el enviado por el cliente
+      OK  Auth Middleware RF-1.3: permite guardar sin cambios al único administrador
+      OK  Auth Middleware RF-1.3: bloquea degradar, desactivar o eliminar al último administrador activo
+
+[PASSED] tests/presentation/views/dashboard.test.js  (3/3)
+      OK  Dashboard - enlaces de acciones con ObjectId los ObjectId de pagos y perfiles se envían como cadenas JavaScript válidas
+      OK  Dashboard - enlaces de acciones con ObjectId la revisión muestra imagen, datos del pago y desglose de mora/FIFO
+      OK  Dashboard - enlaces de acciones con ObjectId el selector Excel no se superpone al botón de importación

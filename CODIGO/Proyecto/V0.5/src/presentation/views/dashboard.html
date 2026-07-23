@@ -327,19 +327,14 @@
                         </div>
 
                         <form id="excelForm" onsubmit="ejecutarImportacionExcel(event)" class="space-y-4">
-<<<<<<< HEAD:CODIGO/Proyecto/V0.5/src/presentation/views/dashboard.html
                             <label for="excelFile" class="block border-2 border-dashed border-slate-300 hover:border-[#0a4a82] rounded-2xl p-8 text-center cursor-pointer transition bg-slate-50">
                                 <input type="file" id="excelFile" name="file" accept=".xlsx,.xls" required class="sr-only">
-=======
-                            <div class="relative border-2 border-dashed border-slate-300 hover:border-[#0a4a82] rounded-2xl p-8 text-center cursor-pointer transition bg-slate-50">
-                                <input type="file" id="excelFile" accept=".xlsx, .xls" required class="absolute inset-0 opacity-0 w-full cursor-pointer">
->>>>>>> 45863a824b2fd0bc81b96e6ec38320b304e70fcf:Parcial 2/proyecto/V0.5/src/presentation/views/dashboard.html
                                 <div class="flex flex-col items-center space-y-2">
                                     <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                                     <span class="text-slate-500 text-xs block">Arrastra o selecciona el archivo Excel de origen (.xlsx, .xls)</span>
                                     <span class="text-logo-green text-xs font-semibold" id="selectedFileName">Ninguno seleccionado</span>
                                 </div>
-                            </div>
+                            </label>
                             <button id="importSubmitButton" type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3.5 rounded-lg transition cursor-pointer text-xs uppercase tracking-wider">
                                 Procesar y Validar Lote Excel
                             </button>
@@ -633,7 +628,7 @@
                                     <label class="block text-slate-500 font-bold uppercase tracking-wider text-[9px]">Período que Corresponde</label>
                                     <input type="month" id="pagoPeriodo" required class="input-premium w-full rounded-xl px-4 py-2.5 text-slate-600 focus:outline-none">
                                 </div>
-                            </label>
+                            </div>
 
                             <div class="space-y-1">
                                 <label class="block text-slate-500 font-bold uppercase tracking-wider text-[9px]">Fecha en que realizó el pago</label>
@@ -1184,8 +1179,8 @@
             tabs.forEach(t => {
                 const btn = document.getElementById(`tabBtnCopro-${t}`);
                 if (btn) {
-                    btn.className = t === tab ? 
-                        'w-full flex items-center space-x-3 bg-white/10 text-emerald-300 border-l-4 border-[#3da046] px-4 py-3 rounded-r-xl transition text-xs font-semibold' : 
+                    btn.className = t === tab ?
+                        'w-full flex items-center space-x-3 bg-white/10 text-emerald-300 border-l-4 border-[#3da046] px-4 py-3 rounded-r-xl transition text-xs font-semibold' :
                         'w-full flex items-center space-x-3 text-slate-300 hover:bg-white/5 hover:text-white border-l-4 border-transparent px-4 py-3 rounded-r-xl transition text-xs font-semibold';
                 }
                 const content = document.getElementById(`tabContentCopro-${t}`);
@@ -1193,6 +1188,17 @@
                     content.classList.toggle('hidden', t !== tab);
                 }
             });
+
+            // Recargar datos frescos cada vez que se abre la pestaña: si el Administrador
+            // aprobó/rechazó un pago o generó una expensa mientras el copropietario tenía
+            // el panel abierto en otra sesión, debe verse reflejado sin recargar toda la página.
+            if (tab === 'estado') {
+                cargarMiEstadoDeCuenta();
+            } else if (tab === 'deudas') {
+                cargarMisDeudas();
+            } else if (tab === 'historial') {
+                cargarMisPagos();
+            }
 
             // Close mobile menu if open
             const sidebar = document.getElementById('appSidebar');
@@ -2039,16 +2045,23 @@
                         badge.className = "p-3 rounded-xl text-center text-xs font-bold bg-emerald-50 border border-emerald-100 text-[#3da046]";
                     }
                 }
-            } catch {}
+            } catch (err) {
+                const badge = document.getElementById('coproStatusBadge');
+                if (badge) {
+                    badge.innerText = err.message || "No se pudo cargar el estado de cuenta. Intente nuevamente.";
+                    badge.className = "p-3 rounded-xl text-center text-xs font-bold bg-amber-50 border border-amber-200 text-amber-700";
+                }
+            }
         }
 
         async function cargarMisDeudas() {
+            const tbody = document.getElementById('tablaCoproDeudas');
             try {
                 const res = await fetch('/api/pagos/copropietario/deudas', {
                     headers: authHeaders()
                 });
                 const list = await res.json();
-                const tbody = document.getElementById('tablaCoproDeudas');
+                if (!res.ok) throw new Error(list.error || 'No fue posible consultar las deudas.');
                 tbody.innerHTML = '';
 
                 if (list.length === 0) {
@@ -2081,7 +2094,9 @@
                         </tr>
                     `;
                 });
-            } catch {}
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-500 italic">${err.message || 'No fue posible cargar sus deudas. Intente nuevamente.'}</td></tr>`;
+            }
         }
 
         function leerFiltrosMiReporte() {
@@ -2093,32 +2108,25 @@
             };
         }
 
+        // Filtrar es opcional: sin filtros se recarga el historial completo del copropietario.
         async function consultarMiReportePagos() {
             const filtros = leerFiltrosMiReporte();
             const error = document.getElementById('miReporteError');
             error.classList.add('hidden');
-            if (!Object.values(filtros).some(Boolean)) {
-                error.innerText = 'Seleccione al menos un filtro para generar el reporte personalizado.';
-                error.classList.remove('hidden');
-                return;
-            }
             if (filtros.fechaInicio && filtros.fechaFin && filtros.fechaInicio > filtros.fechaFin) {
                 error.innerText = 'Rango de fechas inválido. La fecha inicial debe ser menor o igual a la fecha final.';
                 error.classList.remove('hidden');
                 return;
             }
-            await cargarMisPagos(filtros);
+            const hayFiltros = Object.values(filtros).some(Boolean);
+            await cargarMisPagos(hayFiltros ? filtros : null);
         }
 
         function descargarMiReportePagosPdf() {
             const filtros = leerFiltrosMiReporte();
-            const error = document.getElementById('miReporteError');
-            if (!Object.values(filtros).some(Boolean)) {
-                error.innerText = 'Seleccione al menos un filtro antes de exportar el reporte.';
-                error.classList.remove('hidden');
-                return;
-            }
-            descargarArchivoAutenticado(`/api/pagos/reportes/pdf?${new URLSearchParams(filtros)}`, 'mis_pagos.pdf');
+            const hayFiltros = Object.values(filtros).some(Boolean);
+            const query = hayFiltros ? `?${new URLSearchParams(filtros)}` : '';
+            descargarArchivoAutenticado(`/api/pagos/reportes/pdf${query}`, 'mis_pagos.pdf');
         }
 
         async function descargarArchivoAutenticado(url, nombre) {
@@ -2143,6 +2151,7 @@
         }
 
         async function cargarMisPagos(filtros = null) {
+            const tbody = document.getElementById('tablaCoproHistorial');
             try {
                 const url = filtros
                     ? `/api/pagos/reportes?${new URLSearchParams(filtros)}`
@@ -2152,7 +2161,6 @@
                 });
                 const list = await res.json();
                 if (!res.ok) throw new Error(list.error || 'No fue posible consultar los pagos.');
-                const tbody = document.getElementById('tablaCoproHistorial');
                 tbody.innerHTML = '';
 
                 if(list.length === 0) {
@@ -2162,12 +2170,14 @@
 
                 list.forEach(p => {
                     let descStatus = '';
-                    if (p.estado === 'PENDIENTE_VALIDACION') {
-                        descStatus = `<span class="bg-amber-50 text-amber-700 font-bold px-2.5 py-1 rounded-lg border border-amber-100 text-[10px]">En Revisión</span>`;
-                    } else if (p.estado === 'APROBADO') {
+                    if (p.estado === 'APROBADO') {
                         descStatus = `<span class="bg-emerald-50 text-[#3da046] font-bold px-2.5 py-1 rounded-lg border border-emerald-100 text-[10px]">Aprobado</span>`;
-                    } else {
+                    } else if (p.estado === 'RECHAZADO') {
                         descStatus = `<span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-lg border border-rose-100 text-[10px]">Rechazado</span>`;
+                    } else {
+                        // PENDIENTE_VALIDACION o PROCESANDO (reservado momentáneamente por el
+                        // Administrador durante la aprobación): ambos son "en revisión" para el residente.
+                        descStatus = `<span class="bg-amber-50 text-amber-700 font-bold px-2.5 py-1 rounded-lg border border-amber-100 text-[10px]">En Revisión</span>`;
                     }
 
                     let accionDesc = '';
@@ -2190,7 +2200,9 @@
                         </tr>
                     `;
                 });
-            } catch {}
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-rose-500 italic">${err.message || 'No fue posible cargar el historial de pagos. Intente nuevamente.'}</td></tr>`;
+            }
         }
 
         // RF-3.1: Validación cliente del comprobante (JPG/JPEG/PNG, máx. 5MB) y vista previa

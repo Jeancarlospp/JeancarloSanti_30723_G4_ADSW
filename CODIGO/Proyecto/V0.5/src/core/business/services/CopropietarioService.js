@@ -9,6 +9,76 @@ const Cedula = require('../../domain/valueObjects/Cedula');
 const bcrypt = require('bcrypt');
 const sessionRepository = require('../../../data/repositories/sessionRepository');
 
+// Paleta de marca compartida por los documentos PDF de esta capa (coherente
+// con los colores corporativos usados en login.html / dashboard.html y con
+// los mismos tonos usados en los PDF de pagos de PagoService).
+const MARCA = {
+    navy: '#0a3d62',
+    green: '#2f7d3a',
+    rose: '#b91c1c',
+    roseLight: '#fee2e2',
+    amber: '#b45309',
+    amberLight: '#fef3c7',
+    slate: '#334155',
+    slateLight: '#f1f5f9',
+    border: '#cbd5e1',
+    muted: '#64748b'
+};
+
+function dibujarEncabezado(doc, titulo, subtitulo) {
+    const width = doc.page.width;
+    doc.rect(0, 0, width, 86).fill(MARCA.navy);
+    doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold').text('ALIGEST', 40, 24);
+    doc.fontSize(9).font('Helvetica').fillColor('#cbd5e1').text('Condominio La Primavera · Gestión de Expensas', 40, 46);
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#ffffff').text(titulo, 0, 24, { align: 'right', width: width - 40 });
+    if (subtitulo) {
+        doc.fontSize(9).font('Helvetica').fillColor('#cbd5e1').text(subtitulo, 0, 46, { align: 'right', width: width - 40 });
+    }
+    doc.fontSize(8).fillColor('#9fb8d6').text(`Generado: ${new Date().toLocaleString('es-EC')}`, 0, 62, { align: 'right', width: width - 40 });
+    doc.fillColor(MARCA.slate).font('Helvetica');
+    doc.y = 106;
+}
+
+// El pie se dibuja dentro del margen inferior reservado por PDFDocument, así
+// que el margen se anula temporalmente: si no, PDFKit interpreta que el
+// cursor quedó fuera del área imprimible y dispara una página nueva en
+// cadena (bucle infinito).
+function dibujarPiePagina(doc, nota = 'Documento generado automáticamente por AliGest. La información aquí contenida es confidencial.') {
+    const margenOriginal = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+    const bottom = doc.page.height - 34;
+    // PDFPage no expone un número de página propio; se calcula a partir del
+    // buffer de páginas del documento (1-based).
+    const { start, count } = doc.bufferedPageRange();
+    const numeroPagina = start + count;
+    doc.fontSize(7).fillColor('#94a3b8')
+        .text(nota, 40, bottom, { width: doc.page.width - 160, align: 'left', lineBreak: false })
+        .text(`Página ${numeroPagina}`, doc.page.width - 100, bottom, { width: 60, align: 'right', lineBreak: false });
+    doc.fillColor(MARCA.slate);
+    doc.page.margins.bottom = margenOriginal;
+}
+
+// Cierra la hoja actual con su pie, abre una nueva y vuelve a pintar la
+// cabecera de la tabla. El pie se dibuja aquí explícitamente (nunca desde un
+// listener de 'pageAdded') para que cada página reciba exactamente un pie.
+function asegurarEspacio(doc, alturaFila, redibujarCabecera, notaPie) {
+    const limite = doc.page.height - 60;
+    if (doc.y + alturaFila > limite) {
+        dibujarPiePagina(doc, notaPie);
+        doc.addPage();
+        doc.y = 40;
+        if (redibujarCabecera) redibujarCabecera();
+    }
+}
+
+// Mini tarjeta de estadística (usada en el resumen de importación masiva).
+function dibujarTarjeta(doc, x, y, w, label, valor, color) {
+    doc.roundedRect(x, y, w, 52, 6).fillAndStroke(MARCA.slateLight, MARCA.border);
+    doc.fontSize(8).font('Helvetica-Bold').fillColor(MARCA.muted).text(label.toUpperCase(), x + 12, y + 10, { width: w - 24 });
+    doc.fontSize(18).font('Helvetica-Bold').fillColor(color || MARCA.navy).text(String(valor), x + 12, y + 24, { width: w - 24 });
+    doc.font('Helvetica').fillColor(MARCA.slate);
+}
+
 class CopropietarioService {
     async importarMasivoDesdeExcel(buffer) {
         let workbook;
@@ -221,37 +291,60 @@ class CopropietarioService {
     // Generar archivo PDF con la lista de residentes
     generarPdfLista(lista) {
         return new Promise((resolve) => {
-            const doc = new PDFDocument({ margin: 40 });
-            let buffers = [];
+            const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
+            const buffers = [];
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-            // Cabecera Formal
-            doc.fillColor('#1e3a8a').fontSize(22).text('ALIGEST CONDOMINIOS', { align: 'center', underline: true });
-            doc.fillColor('#475569').fontSize(12).text('Reporte Oficial de Residentes - La Primavera', { align: 'center' });
-            doc.moveDown(2);
+            const dibujarCabeceraTabla = () => {
+                // doc.text() avanza doc.y en cada llamada: se fija la fila en una
+                // variable antes de escribir las columnas para que no se "escalonen".
+                const filaY = doc.y;
+                doc.rect(40, filaY, 700, 24).fill(MARCA.slateLight);
+                doc.fontSize(9).font('Helvetica-Bold').fillColor(MARCA.navy);
+                doc.text('CASA', 50, filaY + 7, { width: 60 });
+                doc.text('RESIDENTE', 120, filaY + 7, { width: 170 });
+                doc.text('CÉDULA', 300, filaY + 7, { width: 90 });
+                doc.text('TELÉFONO', 400, filaY + 7, { width: 100 });
+                doc.text('PERFIL', 510, filaY + 7, { width: 90 });
+                doc.text('SALDO', 610, filaY + 7, { width: 110, align: 'right' });
+                doc.y = filaY + 24;
+                doc.font('Helvetica').fillColor(MARCA.slate);
+            };
 
-            // Cabecera de Tabla
-            doc.fillColor('#0f172a').fontSize(10).text('CASA', 40, doc.y, { bold: true });
-            doc.text('NOMBRE', 110, doc.y);
-            doc.text('CÉDULA', 280, doc.y);
-            doc.text('TELÉFONO', 380, doc.y);
-            doc.text('SALDO', 480, doc.y, { align: 'right' });
-            doc.moveDown(0.5);
-            doc.strokeColor('#cbd5e1').lineWidth(1).moveTo(40, doc.y).lineTo(550, doc.y).stroke();
-            doc.moveDown(0.5);
+            dibujarEncabezado(doc, 'Nómina de Residentes', `${lista.length} copropietario(s) registrado(s)`);
+            dibujarCabeceraTabla();
 
-            // Filas
-            lista.forEach(c => {
-                doc.fillColor('#334155').fontSize(9);
-                doc.text(c.casa, 40, doc.y);
-                doc.text(c.nombre.substring(0, 30), 110, doc.y);
-                doc.text(c.cedula, 280, doc.y);
-                doc.text(c.telefono, 380, doc.y);
-                doc.text(`$${parseFloat(c.saldo).toFixed(2)}`, 480, doc.y, { align: 'right' });
-                doc.moveDown(0.8);
+            if (lista.length === 0) {
+                doc.moveDown(2);
+                doc.fontSize(11).fillColor(MARCA.muted).text('No se encontraron residentes con los criterios seleccionados.', { align: 'center' });
+            }
+
+            lista.forEach((c, i) => {
+                asegurarEspacio(doc, 22, dibujarCabeceraTabla);
+                const rowY = doc.y;
+                if (i % 2 === 0) doc.rect(40, rowY, 700, 22).fill('#f8fafc');
+                const saldo = parseFloat(c.saldo || 0);
+                doc.fillColor(MARCA.slate).fontSize(9).font('Helvetica-Bold');
+                doc.text(c.casa, 50, rowY + 6, { width: 60 });
+                doc.font('Helvetica').text(String(c.nombre || '').substring(0, 32), 120, rowY + 6, { width: 170 });
+                doc.text(c.cedula, 300, rowY + 6, { width: 90 });
+                doc.text(c.telefono, 400, rowY + 6, { width: 100 });
+                doc.fillColor(MARCA.muted).fontSize(8).text(c.perfil || 'N/A', 510, rowY + 7, { width: 90 });
+                doc.font('Helvetica-Bold').fontSize(9).fillColor(saldo > 0 ? MARCA.rose : MARCA.green)
+                    .text(`$${saldo.toFixed(2)}`, 610, rowY + 6, { width: 110, align: 'right' });
+                doc.y = rowY + 22;
             });
 
+            const totalDeuda = lista.reduce((acc, c) => acc + Math.max(0, parseFloat(c.saldo || 0)), 0);
+            asegurarEspacio(doc, 30, dibujarCabeceraTabla);
+            doc.moveDown(0.4);
+            doc.strokeColor(MARCA.border).lineWidth(1).moveTo(40, doc.y).lineTo(740, doc.y).stroke();
+            doc.moveDown(0.4);
+            doc.font('Helvetica-Bold').fontSize(10).fillColor(MARCA.navy)
+                .text(`Deuda total pendiente: $${totalDeuda.toFixed(2)}`, 40, doc.y, { width: 700, align: 'right' });
+
+            dibujarPiePagina(doc);
             doc.end();
         });
     }
@@ -259,18 +352,40 @@ class CopropietarioService {
     // Generar archivo Excel con la lista de residentes
     generarExcelLista(lista) {
         const wb = xlsx.utils.book_new();
-        const formatData = lista.map(c => ({
-            "Cédula": c.cedula,
-            "Residente": c.nombre,
-            "Villa / Casa": c.casa,
-            "Celular": c.telefono,
-            "Correo": c.email,
-            "Perfil": c.perfil || '',
-            "Estado Usuario": c.estado_usuario || '',
-            "Saldo Pendiente": c.saldo
-        }));
-        const ws = xlsx.utils.json_to_sheet(formatData);
-        xlsx.utils.book_append_sheet(wb, ws, "Residentes");
+        const fecha = new Date().toLocaleString('es-EC');
+
+        // Fila de título + fecha de generación por encima de la cabecera de datos,
+        // con las celdas fusionadas para que se lea como un encabezado de reporte.
+        const encabezado = [
+            ['ALIGEST · Nómina Oficial de Residentes - Condominio La Primavera'],
+            [`Generado: ${fecha}  |  Total de registros: ${lista.length}`],
+            []
+        ];
+        const columnas = ['Cédula', 'Residente', 'Villa / Casa', 'Celular', 'Correo', 'Perfil', 'Estado Usuario', 'Saldo Pendiente'];
+        const filas = lista.map(c => [
+            c.cedula, c.nombre, c.casa, c.telefono, c.email, c.perfil || '', c.estado_usuario || '', parseFloat(c.saldo || 0)
+        ]);
+
+        const ws = xlsx.utils.aoa_to_sheet([...encabezado, columnas, ...filas]);
+        const filaCabecera = encabezado.length; // índice 0-based de la fila con los títulos de columna
+        const primeraFilaDatos = filaCabecera + 1;
+
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: columnas.length - 1 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: columnas.length - 1 } }
+        ];
+        ws['!cols'] = [
+            { wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 16 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 16 }
+        ];
+        ws['!autofilter'] = { ref: xlsx.utils.encode_range({ s: { r: filaCabecera, c: 0 }, e: { r: filaCabecera + filas.length, c: columnas.length - 1 } }) };
+
+        // Formato de moneda en la columna de saldo.
+        for (let r = 0; r < filas.length; r++) {
+            const cellRef = xlsx.utils.encode_cell({ r: primeraFilaDatos + r, c: columnas.length - 1 });
+            if (ws[cellRef]) ws[cellRef].z = '"$"#,##0.00';
+        }
+
+        xlsx.utils.book_append_sheet(wb, ws, 'Residentes');
         return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
     }
 
@@ -281,44 +396,81 @@ class CopropietarioService {
             const errores = resumen.errores || [];
             const advertencias = resumen.advertencias || [];
             const doc = new PDFDocument({ margin: 40 });
-            let buffers = [];
+            const buffers = [];
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-            doc.fillColor('#059669').fontSize(20).text('AliGest - Resumen de Importación de Copropietarios', { align: 'center' });
-            doc.moveDown();
-            doc.fillColor('#374151').fontSize(11).text(`Fecha de procesamiento: ${new Date().toLocaleString()}`);
-            doc.text(`Total procesados: ${resumen.totalProcesados ?? resultados.length}`);
-            doc.text(`Registros exitosos: ${resultados.length}`);
-            doc.text(`Registros con errores: ${errores.length}`);
-            doc.moveDown();
+            dibujarEncabezado(doc, 'Resumen de Importación Masiva', 'Copropietarios cargados desde Excel');
 
-            doc.fontSize(12).fillColor('#111827').text('Credenciales temporales de acceso para residentes:', { underline: true });
+            // Tarjetas de estadísticas rápidas
+            const cardY = doc.y;
+            dibujarTarjeta(doc, 40, cardY, 165, 'Total procesados', resumen.totalProcesados ?? resultados.length, MARCA.navy);
+            dibujarTarjeta(doc, 215, cardY, 165, 'Registros exitosos', resultados.length, MARCA.green);
+            dibujarTarjeta(doc, 390, cardY, 165, 'Con errores', errores.length, errores.length > 0 ? MARCA.rose : MARCA.slate);
+            doc.y = cardY + 68;
+
+            doc.font('Helvetica-Bold').fontSize(11).fillColor(MARCA.navy).text('Credenciales Temporales de Acceso');
+            doc.moveDown(0.3);
+            doc.fontSize(8).font('Helvetica').fillColor(MARCA.muted)
+                .text('Cada residente debe cambiar esta contraseña temporal en su primer inicio de sesión.');
             doc.moveDown(0.5);
 
-            resultados.forEach((res, i) => {
-                doc.fontSize(9).fillColor('#374151');
-                doc.text(`${i+1}. Villa: ${res.casa} | Residente: ${res.nombre}`);
-                doc.fillColor('#2563eb').text(`   Usuario de acceso: ${res.username} | Contraseña temporal: ${res.passwordTemporal}`);
-                doc.moveDown(0.6);
-            });
+            const dibujarCabeceraCredenciales = () => {
+                const filaY = doc.y;
+                doc.rect(40, filaY, 515, 20).fill(MARCA.slateLight);
+                doc.fontSize(8).font('Helvetica-Bold').fillColor(MARCA.navy);
+                doc.text('VILLA', 48, filaY + 6, { width: 60 });
+                doc.text('RESIDENTE', 110, filaY + 6, { width: 160 });
+                doc.text('USUARIO', 280, filaY + 6, { width: 100 });
+                doc.text('CONTRASEÑA TEMPORAL', 390, filaY + 6, { width: 150 });
+                doc.y = filaY + 20;
+                doc.font('Helvetica').fillColor(MARCA.slate);
+            };
+
+            if (resultados.length === 0) {
+                doc.fontSize(9).fillColor(MARCA.muted).text('No se generaron cuentas nuevas en este proceso.');
+            } else {
+                dibujarCabeceraCredenciales();
+                resultados.forEach((res, i) => {
+                    asegurarEspacio(doc, 20, dibujarCabeceraCredenciales);
+                    const rowY = doc.y;
+                    if (i % 2 === 0) doc.rect(40, rowY, 515, 20).fill('#f8fafc');
+                    doc.fillColor(MARCA.slate).fontSize(8.5).font('Helvetica-Bold');
+                    doc.text(res.casa, 48, rowY + 6, { width: 60 });
+                    doc.font('Helvetica').text(String(res.nombre || '').substring(0, 28), 110, rowY + 6, { width: 160 });
+                    doc.fillColor(MARCA.navy).text(res.username, 280, rowY + 6, { width: 100 });
+                    doc.font('Helvetica-Bold').fillColor(MARCA.green).text(res.passwordTemporal, 390, rowY + 6, { width: 150 });
+                    doc.y = rowY + 20;
+                });
+            }
 
             if (errores.length > 0) {
-                doc.addPage();
-                doc.fontSize(12).fillColor('#b91c1c').text('Registros con errores:', { underline: true });
-                doc.moveDown(0.5);
+                doc.moveDown(1);
+                doc.font('Helvetica-Bold').fontSize(11).fillColor(MARCA.rose).text('Registros con Errores');
+                doc.moveDown(0.4);
                 errores.forEach(error => {
-                    doc.fontSize(9).fillColor('#374151').text(`Fila ${error.fila}: ${error.mensaje}`);
-                    doc.moveDown(0.4);
+                    asegurarEspacio(doc, 18);
+                    doc.roundedRect(40, doc.y, 515, 16, 3).fill(MARCA.roseLight);
+                    doc.fontSize(8).font('Helvetica').fillColor(MARCA.rose)
+                        .text(`Fila ${error.fila}: ${error.mensaje}`, 48, doc.y + 4, { width: 500 });
+                    doc.y += 20;
                 });
             }
 
             if (advertencias.length > 0) {
-                doc.moveDown();
-                doc.fontSize(11).fillColor('#b45309').text('Advertencias:', { underline: true });
-                advertencias.forEach(aviso => doc.fontSize(9).text(`• ${aviso}`));
+                doc.moveDown(0.6);
+                doc.font('Helvetica-Bold').fontSize(11).fillColor(MARCA.amber).text('Advertencias');
+                doc.moveDown(0.4);
+                advertencias.forEach(aviso => {
+                    asegurarEspacio(doc, 16);
+                    doc.roundedRect(40, doc.y, 515, 16, 3).fill(MARCA.amberLight);
+                    doc.fontSize(8).font('Helvetica').fillColor(MARCA.amber)
+                        .text(`• ${aviso}`, 48, doc.y + 4, { width: 500 });
+                    doc.y += 20;
+                });
             }
 
+            dibujarPiePagina(doc);
             doc.end();
         });
     }

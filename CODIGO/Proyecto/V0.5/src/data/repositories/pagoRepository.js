@@ -148,10 +148,13 @@ class PagoRepository {
         return mapPago(await Pago.findOne({ comprobante_id: comprobanteId }));
     }
 
+    // recibo_id tiene un índice único+sparse: solo se incluye en el documento
+    // cuando existe un valor real. Escribirlo explícitamente como null (incluso
+    // vía $set) lo vuelve "presente" para MongoDB y rompe la unicidad en cuanto
+    // exista un segundo pago pendiente o rechazado (ambos sin recibo aún).
     async registrarPagoInmutable(comprobanteId, copropietarioId, monto, estado, reciboId = null, metodo = 'TRANSFERENCIA', periodo = '', comprobanteImg = null, fechaPago = null) {
-        const row = await Pago.create({
+        const datos = {
             comprobante_id: comprobanteId,
-            recibo_id: reciboId,
             copropietario_id: copropietarioId,
             monto_pagado: monto,
             estado,
@@ -160,19 +163,22 @@ class PagoRepository {
             metodo,
             periodo,
             comprobante_img: comprobanteImg
-        });
+        };
+        if (reciboId) datos.recibo_id = reciboId;
+        const row = await Pago.create(datos);
         return row._id.toString();
     }
 
     async updatePagoEstado(id, estado, reciboId = null, motivoRechazo = null, detalles = {}) {
-        const cambios = {
-            estado,
-            recibo_id: reciboId,
-            motivo_rechazo: motivoRechazo
-        };
-        if (detalles.sobrepago !== undefined) cambios.sobrepago = detalles.sobrepago;
-        if (detalles.recargoMoraTotal !== undefined) cambios.recargo_mora_total = detalles.recargoMoraTotal;
-        if (detalles.aplicaciones !== undefined) cambios.aplicaciones = detalles.aplicaciones;
+        const cambios = { $set: { estado, motivo_rechazo: motivoRechazo } };
+        if (reciboId) {
+            cambios.$set.recibo_id = reciboId;
+        } else {
+            cambios.$unset = { recibo_id: '' };
+        }
+        if (detalles.sobrepago !== undefined) cambios.$set.sobrepago = detalles.sobrepago;
+        if (detalles.recargoMoraTotal !== undefined) cambios.$set.recargo_mora_total = detalles.recargoMoraTotal;
+        if (detalles.aplicaciones !== undefined) cambios.$set.aplicaciones = detalles.aplicaciones;
         const res = await Pago.updateOne({ _id: id }, cambios);
         return res.modifiedCount;
     }
@@ -188,9 +194,10 @@ class PagoRepository {
     }
 
     async rechazarPagoPendiente(id, motivo) {
+        // El pago aún no tenía recibo_id (nunca fue aprobado), así que no se toca ese campo.
         const res = await Pago.updateOne(
             { _id: id, estado: 'PENDIENTE_VALIDACION' },
-            { $set: { estado: 'RECHAZADO', motivo_rechazo: motivo, recibo_id: null } }
+            { $set: { estado: 'RECHAZADO', motivo_rechazo: motivo } }
         );
         return res.modifiedCount === 1;
     }

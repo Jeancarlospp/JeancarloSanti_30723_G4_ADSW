@@ -79,7 +79,11 @@ const DeudaSchema = new mongoose.Schema({
 
 const PagoSchema = new mongoose.Schema({
     comprobante_id: { type: String, unique: true, required: true },
-    recibo_id: { type: String, unique: true, sparse: true, default: null },
+    // Sin "default": el índice único+sparse solo excluye documentos donde el
+    // campo está ausente. Si se le asignara "default: null", Mongoose lo
+    // escribiría explícitamente como null en cada pago pendiente/rechazado y
+    // el segundo de ellos violaría la unicidad (ver pagoRepository.js).
+    recibo_id: { type: String, unique: true, sparse: true },
     copropietario_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Copropietario', required: true },
     monto_pagado: { type: Number, required: true },
     estado: { type: String, default: 'PENDIENTE_VALIDACION' }, // 'PENDIENTE_VALIDACION', 'APROBADO', 'RECHAZADO'

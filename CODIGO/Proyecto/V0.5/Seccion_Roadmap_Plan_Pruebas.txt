@@ -42,20 +42,21 @@ resto del informe.
 \toprule
 \textbf{\#} & \textbf{REQ} & \textbf{Componente / Capa} & \textbf{Archivo de prueba planificado} & \textbf{Tipo} \\
 \midrule
-1  & REQ001 & \texttt{AuthService} + \texttt{authMiddleware} & \texttt{AuthService.test.js} / \texttt{authMiddleware.test.js} & Integración + Unitaria \\
+1  & REQ001 & \texttt{AuthService} + \texttt{authMiddleware} + \texttt{sessionRepository} & \texttt{AuthService.test.js} / \texttt{authMiddleware.test.js} / \texttt{authController.test.js} / \texttt{sessionRepository.test.js} & Integración + Unitaria \\
 2  & REQ002 & \texttt{AuthService} (recuperación) & \texttt{AuthService.test.js} & Integración \\
-3  & REQ003 & \texttt{authMiddleware} (perfiles) & \texttt{authMiddleware.test.js} & Unitaria \\
-4  & REQ004 & \texttt{CopropietarioService} + \texttt{excelAdapter} & \texttt{CopropietarioService.test.js} / \texttt{excelAdapter.test.js} & Integración + Unitaria \\
+3  & REQ003 & \texttt{authMiddleware} + \texttt{authController} (perfiles) & \texttt{authMiddleware.test.js} / \texttt{authController.test.js} / \texttt{sessionRepository.test.js} & Unitaria + Integración \\
+4  & REQ004 & \texttt{CopropietarioService} + \texttt{excelAdapter} & \texttt{CopropietarioService.test.js} / \texttt{excelAdapter.test.js} / \texttt{ExcelImportSample.test.js} & Integración + Unitaria \\
 5  & REQ005 & \texttt{copropietarioController} & \texttt{copropietarioController.test.js} & Integración HTTP \\
-6  & REQ006 & \texttt{PagoService} (reportes) & \emph{Planificado, no implementado} & Integración \\
+6  & REQ006 & \texttt{PagoService} (reportes) & \emph{Cobertura indirecta (Sección 7.4)} & Integración \\
 7  & REQ007 & \texttt{CopropietarioService} (modificar) & \texttt{CopropietarioService.test.js} & Integración \\
 8  & REQ008 & \texttt{CopropietarioService} + \texttt{copropietarioController} & \texttt{CopropietarioService.test.js} / \texttt{copropietarioController.test.js} & Integración \\
-9  & REQ009 & \texttt{PagoService} (reportar pago) & \texttt{PagoService.test.js} & Integración \\
-10 & REQ010 & \texttt{PagoService} + \texttt{auditDecorator} & \texttt{PagoService.test.js} / \texttt{auditDecorator.test.js} & Integración + Unitaria \\
+9  & REQ009 & \texttt{PagoService} + \texttt{pagoController} (reportar pago) & \texttt{PagoService.test.js} / \texttt{pagoController.test.js} & Integración \\
+10 & REQ010 & \texttt{PagoService} + \texttt{auditDecorator} + \texttt{pagoController} & \texttt{PagoService.test.js} / \texttt{auditDecorator.test.js} / \texttt{pagoController.test.js} & Integración + Unitaria \\
 11 & REQ011 & \texttt{moraStrategy} + \texttt{PagoService} (expensas) & \texttt{moraStrategy.test.js} / \texttt{PagoService.test.js} & Unitaria + Integración \\
-12 & REQ012 & \texttt{Pago} (modelo de dominio) & \emph{Planificado, no implementado} & Unitaria \\
-13 & REQ013 & \texttt{NotificationService} & \emph{Planificado, no implementado} & Unitaria \\
+12 & REQ012 & \texttt{Pago} + \texttt{pagoController} (recibo inmutable) & \texttt{pagoController.test.js} & Integración \\
+13 & REQ013 & \texttt{NotificationService} & \texttt{NotificationService.test.js} & Integración \\
 -- & Transversal & \texttt{Usuario}, \texttt{Cedula}, \texttt{Telefono} & \texttt{Usuario.test.js} / \texttt{Cedula.test.js} / \texttt{Telefono.test.js} & Unitaria \\
+-- & Regresión & Vista \texttt{dashboard.html} & \texttt{dashboard.test.js} & Unitaria \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -76,7 +77,9 @@ resto del informe.
 \end{tabular}
 \end{table}
 
-Como se detalla en la Sección~4, de las 13 líneas planificadas, 10 se implementaron con
-cobertura completa y 3 (REQ006, REQ012, REQ013) quedaron marcadas como pendientes; esa
-brecha se documenta de forma explícita en la Sección~7.4 (Recomendaciones Futuras) en
-lugar de omitirse.
+Como se detalla en la Sección~4, de las 13 líneas planificadas, 12 se implementaron con
+cobertura completa y 1 (REQ006, generación de reportes) quedó con cobertura parcial
+—la restricción por rol se ejercita de forma indirecta mediante las pruebas de
+integración de controladores, pero \texttt{obtenerReportePagos}/\texttt{generarPdfReportePagos}
+aún no tienen un caso dedicado—; esa brecha se documenta de forma explícita en la
+Sección~7.4 (Recomendaciones Futuras) en lugar de omitirse.
